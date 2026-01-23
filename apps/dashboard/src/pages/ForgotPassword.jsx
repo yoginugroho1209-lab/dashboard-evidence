@@ -15,6 +15,22 @@ const ForgotPassword = () => {
         setMessage(null);
 
         try {
+            // First check if user exists
+            const { data: userExists, error: checkError } = await supabase
+                .rpc('check_user_exists', { user_email: email });
+
+            if (checkError) {
+                console.error('Check user error:', checkError);
+                // If RPC doesn't exist yet, fall back to normal flow
+                // But show a generic message to prevent email enumeration
+            }
+
+            if (userExists === false) {
+                setError('Email tidak terdaftar. Silakan daftar terlebih dahulu.');
+                setLoading(false);
+                return;
+            }
+
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${window.location.origin}/update-password`,
             });
