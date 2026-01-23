@@ -12,7 +12,7 @@ const UploadEvidence = () => {
     const [projectPoints, setProjectPoints] = useState([]);
     const [user, setUser] = useState(null);
     const [modelStatus, setModelStatus] = useState('idle'); // idle, loading, ready, error
-    const [radiusMeters, setRadiusMeters] = useState(20); // Fixed radius 20 meters
+    const [radiusMeters, setRadiusMeters] = useState(10); // Default radius 10 meters
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
@@ -280,11 +280,19 @@ const UploadEvidence = () => {
                                 <span className="material-symbols-outlined text-[20px]">photo_camera</span>
                                 <span className="text-xs font-bold uppercase tracking-widest">Capture Evidence</span>
                             </div>
-                            {/* Fixed Radius Info */}
+                            {/* Radius Selector */}
                             <div className="flex items-center gap-2">
-                                <span className="text-xs text-slate-500 bg-[#1c1e20] border border-border-dark px-2 py-1 rounded">
-                                    Max Radius: 20m
-                                </span>
+                                <span className="text-xs text-slate-500">Max Radius:</span>
+                                <select
+                                    value={radiusMeters}
+                                    onChange={(e) => setRadiusMeters(Number(e.target.value))}
+                                    className="bg-[#1c1e20] border border-border-dark text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-primary"
+                                >
+                                    <option value={5}>5m</option>
+                                    <option value={10}>10m</option>
+                                    <option value={15}>15m</option>
+                                    <option value={20}>20m</option>
+                                </select>
                             </div>
                         </div>
 
