@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { extractExifData, findNearestPoint as findNearest } from '../lib/exifService'
 import { detectPoles, drawDetections, loadModel } from '../lib/objectDetection'
+import { usePullToRefresh } from '../lib/usePullToRefresh'
 
 const UploadEvidence = () => {
     const [selectedFile, setSelectedFile] = useState(null);
@@ -17,6 +18,12 @@ const UploadEvidence = () => {
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
+
+    // Pull to refresh
+    const handleRefresh = useCallback(async () => {
+        window.location.reload();
+    }, []);
+    const { isPulling, pullDistance, isRefreshing } = usePullToRefresh(handleRefresh);
 
     // Load AI model on mount
     useEffect(() => {
@@ -296,6 +303,23 @@ const UploadEvidence = () => {
         <main className="flex-1 flex flex-col h-full overflow-hidden bg-background-dark relative">
             {/* Background Grid Pattern */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }}></div>
+
+            {/* Pull to Refresh Indicator */}
+            {(isPulling || isRefreshing) && (
+                <div
+                    className="absolute top-0 left-0 right-0 z-40 flex justify-center transition-transform duration-200"
+                    style={{ transform: `translateY(${Math.min(pullDistance / 2, 40)}px)` }}
+                >
+                    <div className={`bg-primary/20 backdrop-blur-sm border border-primary/30 rounded-full px-4 py-2 flex items-center gap-2 shadow-lg ${isRefreshing ? 'animate-pulse' : ''}`}>
+                        <span className={`material-symbols-outlined text-primary text-[20px] ${isRefreshing ? 'animate-spin' : ''}`}>
+                            {isRefreshing ? 'sync' : pullDistance >= 80 ? 'arrow_downward' : 'arrow_downward'}
+                        </span>
+                        <span className="text-primary text-sm font-medium">
+                            {isRefreshing ? 'Memuat ulang...' : pullDistance >= 80 ? 'Lepas untuk refresh' : 'Tarik untuk refresh'}
+                        </span>
+                    </div>
+                </div>
+            )}
 
             {/* GPS Warning Overlay */}
             {(gpsStatus === 'disabled' || gpsStatus === 'error') && (
