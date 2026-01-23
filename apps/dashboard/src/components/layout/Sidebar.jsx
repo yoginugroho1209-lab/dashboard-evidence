@@ -1,7 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 
 const Sidebar = () => {
+    const [showComingSoon, setShowComingSoon] = useState(false);
+
+    const activeNavClass = ({ isActive }) =>
+        `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive
+            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(27,152,141,0.2)]'
+            : 'text-gray-400 hover:bg-white/5 hover:text-white border border-transparent'
+        }`;
+
     return (
         <aside className="flex w-72 flex-col border-r border-border-dark bg-surface-dark/50 backdrop-blur-md">
             {/* Logo Section */}
@@ -17,78 +25,55 @@ const Sidebar = () => {
 
             {/* Navigation Links */}
             <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1">
-                <NavLink
-                    to="/"
-                    className={({ isActive }) =>
-                        `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive
-                            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(27,152,141,0.2)]'
-                            : 'text-gray-400 hover:bg-white/5 hover:text-white border border-transparent'
-                        }`
-                    }
-                >
-                    <span className="material-symbols-outlined filled">dashboard</span>
-                    Dashboard
-                </NavLink>
-                <NavLink
-                    to="/map"
-                    className={({ isActive }) =>
-                        `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive
-                            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(27,152,141,0.2)]'
-                            : 'text-gray-400 hover:bg-white/5 hover:text-white border border-transparent'
-                        }`
-                    }
-                >
-                    <span className="material-symbols-outlined">map</span>
-                    Evidence Map
-                </NavLink>
-                <NavLink
-                    to="/projects"
-                    className={({ isActive }) =>
-                        `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive
-                            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(27,152,141,0.2)]'
-                            : 'text-gray-400 hover:bg-white/5 hover:text-white border border-transparent'
-                        }`
-                    }
-                >
-                    <span className="material-symbols-outlined">folder_open</span>
-                    Projects
-                </NavLink>
-                <NavLink
-                    to="/reports"
-                    className={({ isActive }) =>
-                        `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive
-                            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(27,152,141,0.2)]'
-                            : 'text-gray-400 hover:bg-white/5 hover:text-white border border-transparent'
-                        }`
-                    }
-                >
-                    <span className="material-symbols-outlined">description</span>
-                    Reports
-                </NavLink>
-                <NavLink
-                    to="/technicians"
-                    className={({ isActive }) =>
-                        `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive
-                            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(27,152,141,0.2)]'
-                            : 'text-gray-400 hover:bg-white/5 hover:text-white border border-transparent'
-                        }`
-                    }
-                >
-                    <span className="material-symbols-outlined">engineering</span>
-                    Technicians
-                </NavLink>
-                <NavLink
-                    to="/upload-evidence"
-                    className={({ isActive }) =>
-                        `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${isActive
-                            ? 'bg-primary/10 text-primary border border-primary/20 shadow-[0_0_15px_-3px_rgba(27,152,141,0.2)]'
-                            : 'text-gray-400 hover:bg-white/5 hover:text-white border border-transparent'
-                        }`
-                    }
-                >
+                {/* Active Features */}
+                <div className="mb-2">
+                    <span className="px-3 text-xs font-semibold uppercase tracking-wider text-primary/70">Active</span>
+                </div>
+                <NavLink to="/upload-evidence" className={activeNavClass}>
                     <span className="material-symbols-outlined">photo_camera</span>
                     Upload Evidence
                 </NavLink>
+                <NavLink to="/projects" className={activeNavClass}>
+                    <span className="material-symbols-outlined">folder_open</span>
+                    Projects
+                </NavLink>
+                <NavLink to="/reports" className={activeNavClass}>
+                    <span className="material-symbols-outlined">description</span>
+                    Reports
+                </NavLink>
+
+                {/* Coming Soon Section */}
+                <div className="mt-6 mb-2">
+                    <button
+                        onClick={() => setShowComingSoon(!showComingSoon)}
+                        className="flex items-center gap-2 px-3 text-xs font-semibold uppercase tracking-wider text-gray-500 hover:text-gray-400 transition-colors w-full"
+                    >
+                        <span className="material-symbols-outlined text-[16px] transition-transform duration-200" style={{ transform: showComingSoon ? 'rotate(90deg)' : 'rotate(0deg)' }}>
+                            chevron_right
+                        </span>
+                        Coming Soon
+                    </button>
+                </div>
+
+                {showComingSoon && (
+                    <div className="space-y-1 opacity-50">
+                        <div className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 cursor-not-allowed border border-transparent">
+                            <span className="material-symbols-outlined filled">dashboard</span>
+                            Dashboard
+                            <span className="ml-auto text-[10px] bg-gray-700 px-1.5 py-0.5 rounded">Soon</span>
+                        </div>
+                        <div className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 cursor-not-allowed border border-transparent">
+                            <span className="material-symbols-outlined">map</span>
+                            Evidence Map
+                            <span className="ml-auto text-[10px] bg-gray-700 px-1.5 py-0.5 rounded">Soon</span>
+                        </div>
+                        <div className="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-500 cursor-not-allowed border border-transparent">
+                            <span className="material-symbols-outlined">engineering</span>
+                            Technicians
+                            <span className="ml-auto text-[10px] bg-gray-700 px-1.5 py-0.5 rounded">Soon</span>
+                        </div>
+                    </div>
+                )}
             </nav>
 
             {/* User Profile Snippet */}

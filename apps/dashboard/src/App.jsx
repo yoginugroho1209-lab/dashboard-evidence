@@ -34,7 +34,7 @@ function App() {
                         <Route path="/register" element={<Register />} />
 
                         {/* Protected routes */}
-                        <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                        <Route path="/" element={<ProtectedRoute><UploadEvidence /></ProtectedRoute>} />
                         <Route path="/map" element={<ProtectedRoute><MapView /></ProtectedRoute>} />
                         <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
                         <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
