@@ -13,6 +13,7 @@ const UploadEvidence = () => {
     const [user, setUser] = useState(null);
     const [modelStatus, setModelStatus] = useState('idle'); // idle, loading, ready, error
     const [radiusMeters, setRadiusMeters] = useState(5); // Default radius 5 meters
+    const [gpsStatus, setGpsStatus] = useState('checking'); // checking, enabled, disabled, error
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
@@ -31,6 +32,34 @@ const UploadEvidence = () => {
             }
         };
         initModel();
+    }, []);
+
+    // Check GPS status on mount
+    useEffect(() => {
+        const checkGPS = () => {
+            if (!navigator.geolocation) {
+                setGpsStatus('error');
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    console.log('📍 GPS Enabled:', position.coords);
+                    setGpsStatus('enabled');
+                },
+                (error) => {
+                    console.log('⚠️ GPS Error:', error.message);
+                    if (error.code === error.PERMISSION_DENIED) {
+                        setGpsStatus('disabled');
+                    } else {
+                        setGpsStatus('disabled');
+                    }
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        };
+
+        checkGPS();
     }, []);
 
     // Get current user and project points on mount
@@ -267,6 +296,52 @@ const UploadEvidence = () => {
         <main className="flex-1 flex flex-col h-full overflow-hidden bg-background-dark relative">
             {/* Background Grid Pattern */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }}></div>
+
+            {/* GPS Warning Overlay */}
+            {(gpsStatus === 'disabled' || gpsStatus === 'error') && (
+                <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+                    <div className="bg-surface-dark border border-red-500/30 rounded-xl p-8 max-w-md text-center shadow-2xl">
+                        <div className="w-20 h-20 mx-auto rounded-full bg-red-500/10 flex items-center justify-center mb-6">
+                            <span className="material-symbols-outlined text-red-400 text-[48px]">location_off</span>
+                        </div>
+                        <h2 className="text-xl font-bold text-white mb-3">GPS Tidak Aktif</h2>
+                        <p className="text-slate-400 text-sm mb-6">
+                            Untuk mengupload evidence, Anda <strong className="text-white">wajib mengaktifkan GPS</strong> di perangkat Anda.
+                            Pastikan izin lokasi sudah diberikan untuk browser ini.
+                        </p>
+                        <div className="space-y-3">
+                            <button
+                                onClick={() => {
+                                    setGpsStatus('checking');
+                                    navigator.geolocation.getCurrentPosition(
+                                        () => setGpsStatus('enabled'),
+                                        () => setGpsStatus('disabled'),
+                                        { enableHighAccuracy: true, timeout: 10000 }
+                                    );
+                                }}
+                                className="w-full py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg flex items-center justify-center gap-2 transition-colors"
+                            >
+                                <span className="material-symbols-outlined text-[18px]">refresh</span>
+                                Cek Ulang GPS
+                            </button>
+                            <p className="text-xs text-slate-500">
+                                💡 Buka Settings → Location → aktifkan GPS, lalu klik tombol di atas
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* GPS Checking Overlay */}
+            {gpsStatus === 'checking' && (
+                <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+                    <div className="bg-surface-dark border border-border-dark rounded-xl p-8 max-w-md text-center">
+                        <div className="w-16 h-16 mx-auto border-4 border-primary border-t-transparent rounded-full animate-spin mb-6"></div>
+                        <h2 className="text-xl font-bold text-white mb-2">Memeriksa GPS...</h2>
+                        <p className="text-slate-400 text-sm">Mohon izinkan akses lokasi jika diminta</p>
+                    </div>
+                </div>
+            )}
 
             {/* Top Header */}
             <header className="h-20 flex-shrink-0 px-8 flex items-center justify-between border-b border-border-dark bg-[#131416]/80 backdrop-blur-md z-10">
