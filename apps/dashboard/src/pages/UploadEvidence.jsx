@@ -12,7 +12,7 @@ const UploadEvidence = () => {
     const [projectPoints, setProjectPoints] = useState([]);
     const [user, setUser] = useState(null);
     const [modelStatus, setModelStatus] = useState('idle'); // idle, loading, ready, error
-    const [radiusMeters, setRadiusMeters] = useState(10); // Default radius 10 meters
+    const [radiusMeters, setRadiusMeters] = useState(5); // Default radius 5 meters
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
