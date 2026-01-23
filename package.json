@@ -1,0 +1,7 @@
+{
+    "name": "telkom-evidence-monorepo",
+    "private": true,
+    "workspaces": [
+        "apps/*"
+    ]
+}
