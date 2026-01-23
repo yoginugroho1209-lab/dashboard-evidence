@@ -6,6 +6,7 @@ export const usePullToRefresh = (onRefresh, threshold = 120) => {
     const startY = useRef(0);
     const currentY = useRef(0);
     const isActive = useRef(false);
+    const touchStartScrollY = useRef(0);
 
     useEffect(() => {
         let animationFrame;
@@ -14,7 +15,6 @@ export const usePullToRefresh = (onRefresh, threshold = 120) => {
             if (isActive.current && !isRefreshing) {
                 const distance = currentY.current - startY.current;
                 if (distance > 0) {
-                    // Use easing for smoother pull feel (like rubber band)
                     const easedDistance = Math.pow(distance, 0.7);
                     setPullDistance(easedDistance);
                 } else {
@@ -25,38 +25,49 @@ export const usePullToRefresh = (onRefresh, threshold = 120) => {
         };
 
         const handleTouchStart = (e) => {
-            if (window.scrollY === 0 && !isRefreshing) {
-                startY.current = e.touches[0].clientY;
-                currentY.current = e.touches[0].clientY;
-                isActive.current = true;
-            }
+            touchStartScrollY.current = window.scrollY;
+            startY.current = e.touches[0].clientY;
+            currentY.current = e.touches[0].clientY;
+            // Only activate pull-to-refresh if we're at the very top
+            isActive.current = window.scrollY === 0;
         };
 
         const handleTouchMove = (e) => {
-            if (!isActive.current || isRefreshing) return;
-
             currentY.current = e.touches[0].clientY;
             const distance = currentY.current - startY.current;
 
-            // Prevent scroll when pulling down at top
-            if (distance > 5 && window.scrollY === 0) {
+            // Only prevent scroll if:
+            // 1. We started at top (scrollY was 0 when touch started)
+            // 2. We're pulling DOWN
+            // 3. We're still at top
+            if (isActive.current && distance > 10 && window.scrollY === 0 && !isRefreshing) {
                 e.preventDefault();
+            } else {
+                // Not a pull gesture, disable pull-to-refresh for this touch
+                if (distance < 0 || window.scrollY > 0) {
+                    isActive.current = false;
+                    setPullDistance(0);
+                }
             }
         };
 
         const handleTouchEnd = async () => {
-            if (!isActive.current) return;
+            if (!isActive.current) {
+                setPullDistance(0);
+                startY.current = 0;
+                currentY.current = 0;
+                return;
+            }
 
             const finalDistance = Math.pow(currentY.current - startY.current, 0.7);
 
             if (finalDistance >= threshold && !isRefreshing) {
                 setIsRefreshing(true);
-                setPullDistance(threshold); // Keep at threshold during refresh
+                setPullDistance(threshold);
                 await onRefresh();
                 setIsRefreshing(false);
                 setPullDistance(0);
             } else {
-                // Animate back to 0 smoothly
                 setPullDistance(0);
             }
 
@@ -79,7 +90,6 @@ export const usePullToRefresh = (onRefresh, threshold = 120) => {
         };
     }, [onRefresh, threshold, isRefreshing]);
 
-    // Calculate rotation based on pull distance (0 to 360 degrees)
     const rotation = Math.min((pullDistance / threshold) * 360, 360);
     const progress = Math.min(pullDistance / threshold, 1);
 

@@ -307,25 +307,27 @@ const UploadEvidence = () => {
             {/* Pull to Refresh Indicator - Chrome Style */}
             {(isPulling || isRefreshing) && (
                 <div
-                    className="absolute top-0 left-0 right-0 z-40 flex justify-center"
+                    className="fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
                     style={{
                         transform: `translateY(${Math.min(pullDistance * 0.8, 80)}px)`,
                         transition: isRefreshing ? 'none' : 'transform 0.05s ease-out'
                     }}
                 >
                     <div
-                        className={`w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-colors duration-200 ${isReadyToRefresh || isRefreshing
+                        className={`rounded-full shadow-xl flex items-center justify-center transition-colors duration-200 ${isReadyToRefresh || isRefreshing
                                 ? 'bg-primary'
                                 : 'bg-surface-dark border-2 border-border-dark'
                             }`}
                         style={{
+                            width: '48px',
+                            height: '48px',
                             opacity: Math.min(progress * 2, 1)
                         }}
                     >
                         <span
-                            className={`material-symbols-outlined text-[28px] ${isReadyToRefresh || isRefreshing ? 'text-white' : 'text-slate-400'
-                                }`}
+                            className={`material-symbols-outlined ${isReadyToRefresh || isRefreshing ? 'text-white' : 'text-slate-400'}`}
                             style={{
+                                fontSize: '28px',
                                 transform: isRefreshing ? 'none' : `rotate(${rotation}deg)`,
                                 transition: 'transform 0.05s linear'
                             }}
@@ -338,9 +340,9 @@ const UploadEvidence = () => {
 
             {/* Refreshing spinner overlay */}
             {isRefreshing && (
-                <div className="absolute top-0 left-0 right-0 z-40 flex justify-center" style={{ transform: 'translateY(80px)' }}>
-                    <div className="w-12 h-12 rounded-full bg-primary shadow-xl flex items-center justify-center">
-                        <span className="material-symbols-outlined text-[28px] text-white animate-spin">refresh</span>
+                <div className="fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none" style={{ transform: 'translateY(80px)' }}>
+                    <div className="rounded-full bg-primary shadow-xl flex items-center justify-center" style={{ width: '48px', height: '48px' }}>
+                        <span className="material-symbols-outlined text-white animate-spin" style={{ fontSize: '28px' }}>refresh</span>
                     </div>
                 </div>
             )}
