@@ -11,9 +11,11 @@ import Register from './pages/Register'
 import Technicians from './pages/Technicians'
 import UploadEvidence from './pages/UploadEvidence'
 
+import ForgotPassword from './pages/ForgotPassword'
+
 function Layout({ children }) {
     const location = useLocation();
-    const isAuthPage = ['/login', '/register'].includes(location.pathname);
+    const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
 
     return (
         <div className="flex h-screen w-full bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden selection:bg-primary/30 selection:text-white">
@@ -32,6 +34,7 @@ function App() {
                         {/* Public routes */}
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
+                        <Route path="/forgot-password" element={<ForgotPassword />} />
 
                         {/* Protected routes */}
                         <Route path="/" element={<ProtectedRoute><UploadEvidence /></ProtectedRoute>} />
