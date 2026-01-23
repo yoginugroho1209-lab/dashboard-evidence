@@ -23,7 +23,7 @@ const UploadEvidence = () => {
     const handleRefresh = useCallback(async () => {
         window.location.reload();
     }, []);
-    const { isPulling, pullDistance, isRefreshing } = usePullToRefresh(handleRefresh);
+    const { isPulling, pullDistance, isRefreshing, isReadyToRefresh } = usePullToRefresh(handleRefresh);
 
     // Load AI model on mount
     useEffect(() => {
@@ -307,15 +307,12 @@ const UploadEvidence = () => {
             {/* Pull to Refresh Indicator */}
             {(isPulling || isRefreshing) && (
                 <div
-                    className="absolute top-0 left-0 right-0 z-40 flex justify-center transition-transform duration-200"
-                    style={{ transform: `translateY(${Math.min(pullDistance / 2, 40)}px)` }}
+                    className="absolute top-0 left-0 right-0 z-40 flex justify-center pt-4 transition-all duration-150"
+                    style={{ transform: `translateY(${Math.min(pullDistance * 0.3, 50)}px)`, opacity: Math.min(pullDistance / 50, 1) }}
                 >
-                    <div className={`bg-primary/20 backdrop-blur-sm border border-primary/30 rounded-full px-4 py-2 flex items-center gap-2 shadow-lg ${isRefreshing ? 'animate-pulse' : ''}`}>
-                        <span className={`material-symbols-outlined text-primary text-[20px] ${isRefreshing ? 'animate-spin' : ''}`}>
-                            {isRefreshing ? 'sync' : pullDistance >= 80 ? 'arrow_downward' : 'arrow_downward'}
-                        </span>
-                        <span className="text-primary text-sm font-medium">
-                            {isRefreshing ? 'Memuat ulang...' : pullDistance >= 80 ? 'Lepas untuk refresh' : 'Tarik untuk refresh'}
+                    <div className={`rounded-full p-3 shadow-lg transition-all ${isReadyToRefresh || isRefreshing ? 'bg-primary scale-110' : 'bg-surface-dark border border-border-dark'}`}>
+                        <span className={`material-symbols-outlined text-[24px] transition-transform ${isRefreshing ? 'text-white animate-spin' : isReadyToRefresh ? 'text-white rotate-180' : 'text-slate-400'}`}>
+                            {isRefreshing ? 'sync' : 'arrow_downward'}
                         </span>
                     </div>
                 </div>
