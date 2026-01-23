@@ -307,10 +307,11 @@ const UploadEvidence = () => {
             {/* Pull to Refresh Indicator - Google Style */}
             {(isPulling || isRefreshing) && (
                 <div
-                    className="fixed left-0 right-0 z-[100] flex justify-center pointer-events-none"
+                    className="fixed z-[100] pointer-events-none"
                     style={{
                         top: '20px',
-                        transform: `translateY(${Math.min(pullDistance * 0.5, 40)}px)`,
+                        left: '50%',
+                        transform: `translateX(-50%) translateY(${Math.min(pullDistance * 0.5, 40)}px)`,
                         transition: isRefreshing ? 'none' : 'transform 0.03s ease-out'
                     }}
                 >
@@ -320,15 +321,15 @@ const UploadEvidence = () => {
                                 : 'bg-white border border-gray-300'
                             }`}
                         style={{
-                            width: '40px',
-                            height: '40px',
+                            width: '44px',
+                            height: '44px',
                             opacity: Math.min(progress * 3, 1)
                         }}
                     >
                         <span
                             className={`material-symbols-outlined ${isReadyToRefresh || isRefreshing ? 'text-white' : 'text-gray-500'}`}
                             style={{
-                                fontSize: '22px',
+                                fontSize: '24px',
                                 transform: isRefreshing ? 'none' : `rotate(${rotation}deg)`,
                                 transition: 'transform 0.03s linear'
                             }}
@@ -341,9 +342,12 @@ const UploadEvidence = () => {
 
             {/* Refreshing spinner overlay */}
             {isRefreshing && (
-                <div className="fixed left-0 right-0 z-[100] flex justify-center pointer-events-none" style={{ top: '60px' }}>
-                    <div className="rounded-full bg-primary shadow-lg flex items-center justify-center" style={{ width: '40px', height: '40px' }}>
-                        <span className="material-symbols-outlined text-white animate-spin" style={{ fontSize: '22px' }}>refresh</span>
+                <div
+                    className="fixed z-[100] pointer-events-none"
+                    style={{ top: '60px', left: '50%', transform: 'translateX(-50%)' }}
+                >
+                    <div className="rounded-full bg-primary shadow-lg flex items-center justify-center" style={{ width: '44px', height: '44px' }}>
+                        <span className="material-symbols-outlined text-white animate-spin" style={{ fontSize: '24px' }}>refresh</span>
                     </div>
                 </div>
             )}
