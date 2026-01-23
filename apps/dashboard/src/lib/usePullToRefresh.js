@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 
-export const usePullToRefresh = (onRefresh, threshold = 120) => {
+export const usePullToRefresh = (onRefresh, threshold = 60) => {
     const [pullDistance, setPullDistance] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const startY = useRef(0);
     const currentY = useRef(0);
     const isActive = useRef(false);
-    const touchStartScrollY = useRef(0);
 
     useEffect(() => {
         let animationFrame;
@@ -15,7 +14,8 @@ export const usePullToRefresh = (onRefresh, threshold = 120) => {
             if (isActive.current && !isRefreshing) {
                 const distance = currentY.current - startY.current;
                 if (distance > 0) {
-                    const easedDistance = Math.pow(distance, 0.7);
+                    // Less resistance for easier pull
+                    const easedDistance = Math.pow(distance, 0.8);
                     setPullDistance(easedDistance);
                 } else {
                     setPullDistance(0);
@@ -25,10 +25,8 @@ export const usePullToRefresh = (onRefresh, threshold = 120) => {
         };
 
         const handleTouchStart = (e) => {
-            touchStartScrollY.current = window.scrollY;
             startY.current = e.touches[0].clientY;
             currentY.current = e.touches[0].clientY;
-            // Only activate pull-to-refresh if we're at the very top
             isActive.current = window.scrollY === 0;
         };
 
@@ -36,14 +34,9 @@ export const usePullToRefresh = (onRefresh, threshold = 120) => {
             currentY.current = e.touches[0].clientY;
             const distance = currentY.current - startY.current;
 
-            // Only prevent scroll if:
-            // 1. We started at top (scrollY was 0 when touch started)
-            // 2. We're pulling DOWN
-            // 3. We're still at top
-            if (isActive.current && distance > 10 && window.scrollY === 0 && !isRefreshing) {
+            if (isActive.current && distance > 5 && window.scrollY === 0 && !isRefreshing) {
                 e.preventDefault();
             } else {
-                // Not a pull gesture, disable pull-to-refresh for this touch
                 if (distance < 0 || window.scrollY > 0) {
                     isActive.current = false;
                     setPullDistance(0);
@@ -59,7 +52,7 @@ export const usePullToRefresh = (onRefresh, threshold = 120) => {
                 return;
             }
 
-            const finalDistance = Math.pow(currentY.current - startY.current, 0.7);
+            const finalDistance = Math.pow(currentY.current - startY.current, 0.8);
 
             if (finalDistance >= threshold && !isRefreshing) {
                 setIsRefreshing(true);

@@ -304,32 +304,33 @@ const UploadEvidence = () => {
             {/* Background Grid Pattern */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }}></div>
 
-            {/* Pull to Refresh Indicator - Chrome Style */}
+            {/* Pull to Refresh Indicator - Google Style */}
             {(isPulling || isRefreshing) && (
                 <div
-                    className="fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none"
+                    className="fixed left-0 right-0 z-[100] flex justify-center pointer-events-none"
                     style={{
-                        transform: `translateY(${Math.min(pullDistance * 0.8, 80)}px)`,
-                        transition: isRefreshing ? 'none' : 'transform 0.05s ease-out'
+                        top: '20px',
+                        transform: `translateY(${Math.min(pullDistance * 0.5, 40)}px)`,
+                        transition: isRefreshing ? 'none' : 'transform 0.03s ease-out'
                     }}
                 >
                     <div
-                        className={`rounded-full shadow-xl flex items-center justify-center transition-colors duration-200 ${isReadyToRefresh || isRefreshing
+                        className={`rounded-full shadow-lg flex items-center justify-center transition-colors duration-150 ${isReadyToRefresh || isRefreshing
                                 ? 'bg-primary'
-                                : 'bg-surface-dark border-2 border-border-dark'
+                                : 'bg-white border border-gray-300'
                             }`}
                         style={{
-                            width: '48px',
-                            height: '48px',
-                            opacity: Math.min(progress * 2, 1)
+                            width: '40px',
+                            height: '40px',
+                            opacity: Math.min(progress * 3, 1)
                         }}
                     >
                         <span
-                            className={`material-symbols-outlined ${isReadyToRefresh || isRefreshing ? 'text-white' : 'text-slate-400'}`}
+                            className={`material-symbols-outlined ${isReadyToRefresh || isRefreshing ? 'text-white' : 'text-gray-500'}`}
                             style={{
-                                fontSize: '28px',
+                                fontSize: '22px',
                                 transform: isRefreshing ? 'none' : `rotate(${rotation}deg)`,
-                                transition: 'transform 0.05s linear'
+                                transition: 'transform 0.03s linear'
                             }}
                         >
                             {isRefreshing ? 'sync' : 'refresh'}
@@ -340,9 +341,9 @@ const UploadEvidence = () => {
 
             {/* Refreshing spinner overlay */}
             {isRefreshing && (
-                <div className="fixed top-0 left-0 right-0 z-[100] flex justify-center pointer-events-none" style={{ transform: 'translateY(80px)' }}>
-                    <div className="rounded-full bg-primary shadow-xl flex items-center justify-center" style={{ width: '48px', height: '48px' }}>
-                        <span className="material-symbols-outlined text-white animate-spin" style={{ fontSize: '28px' }}>refresh</span>
+                <div className="fixed left-0 right-0 z-[100] flex justify-center pointer-events-none" style={{ top: '60px' }}>
+                    <div className="rounded-full bg-primary shadow-lg flex items-center justify-center" style={{ width: '40px', height: '40px' }}>
+                        <span className="material-symbols-outlined text-white animate-spin" style={{ fontSize: '22px' }}>refresh</span>
                     </div>
                 </div>
             )}
