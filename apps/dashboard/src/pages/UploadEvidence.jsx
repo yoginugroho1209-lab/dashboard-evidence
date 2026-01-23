@@ -68,6 +68,32 @@ const UploadEvidence = () => {
         getPoints();
     }, []);
 
+    // Auto-recalculate matched point when radius changes (after analysis is done)
+    useEffect(() => {
+        if (analysisResult && analysisResult.exif.hasGPS && projectPoints.length > 0) {
+            const matchedPoint = findNearest(
+                analysisResult.exif.latitude,
+                analysisResult.exif.longitude,
+                projectPoints,
+                radiusMeters
+            );
+
+            setAnalysisResult(prev => ({
+                ...prev,
+                matchedPoint: {
+                    point: matchedPoint.point ? {
+                        id: matchedPoint.point.id,
+                        dbId: matchedPoint.point.dbId,
+                        name: matchedPoint.point.name,
+                        projectId: matchedPoint.point.projectId
+                    } : null,
+                    distance: matchedPoint.distance,
+                    withinRadius: matchedPoint.withinRadius
+                }
+            }));
+        }
+    }, [radiusMeters, projectPoints]);
+
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
