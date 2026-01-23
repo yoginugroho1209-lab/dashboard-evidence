@@ -23,7 +23,7 @@ const UploadEvidence = () => {
     const handleRefresh = useCallback(async () => {
         window.location.reload();
     }, []);
-    const { isPulling, pullDistance, isRefreshing, isReadyToRefresh } = usePullToRefresh(handleRefresh);
+    const { isPulling, pullDistance, isRefreshing, isReadyToRefresh, rotation, progress } = usePullToRefresh(handleRefresh);
 
     // Load AI model on mount
     useEffect(() => {
@@ -304,16 +304,43 @@ const UploadEvidence = () => {
             {/* Background Grid Pattern */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }}></div>
 
-            {/* Pull to Refresh Indicator */}
+            {/* Pull to Refresh Indicator - Chrome Style */}
             {(isPulling || isRefreshing) && (
                 <div
-                    className="absolute top-0 left-0 right-0 z-40 flex justify-center pt-4 transition-all duration-150"
-                    style={{ transform: `translateY(${Math.min(pullDistance * 0.3, 50)}px)`, opacity: Math.min(pullDistance / 50, 1) }}
+                    className="absolute top-0 left-0 right-0 z-40 flex justify-center"
+                    style={{
+                        transform: `translateY(${Math.min(pullDistance * 0.8, 80)}px)`,
+                        transition: isRefreshing ? 'none' : 'transform 0.05s ease-out'
+                    }}
                 >
-                    <div className={`rounded-full p-3 shadow-lg transition-all ${isReadyToRefresh || isRefreshing ? 'bg-primary scale-110' : 'bg-surface-dark border border-border-dark'}`}>
-                        <span className={`material-symbols-outlined text-[24px] transition-transform ${isRefreshing ? 'text-white animate-spin' : isReadyToRefresh ? 'text-white rotate-180' : 'text-slate-400'}`}>
-                            {isRefreshing ? 'sync' : 'arrow_downward'}
+                    <div
+                        className={`w-12 h-12 rounded-full shadow-xl flex items-center justify-center transition-colors duration-200 ${isReadyToRefresh || isRefreshing
+                                ? 'bg-primary'
+                                : 'bg-surface-dark border-2 border-border-dark'
+                            }`}
+                        style={{
+                            opacity: Math.min(progress * 2, 1)
+                        }}
+                    >
+                        <span
+                            className={`material-symbols-outlined text-[28px] ${isReadyToRefresh || isRefreshing ? 'text-white' : 'text-slate-400'
+                                }`}
+                            style={{
+                                transform: isRefreshing ? 'none' : `rotate(${rotation}deg)`,
+                                transition: 'transform 0.05s linear'
+                            }}
+                        >
+                            {isRefreshing ? 'sync' : 'refresh'}
                         </span>
+                    </div>
+                </div>
+            )}
+
+            {/* Refreshing spinner overlay */}
+            {isRefreshing && (
+                <div className="absolute top-0 left-0 right-0 z-40 flex justify-center" style={{ transform: 'translateY(80px)' }}>
+                    <div className="w-12 h-12 rounded-full bg-primary shadow-xl flex items-center justify-center">
+                        <span className="material-symbols-outlined text-[28px] text-white animate-spin">refresh</span>
                     </div>
                 </div>
             )}

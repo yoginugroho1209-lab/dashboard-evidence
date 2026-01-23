@@ -1,79 +1,94 @@
 import { useState, useEffect, useRef } from 'react';
 
-export const usePullToRefresh = (onRefresh, threshold = 100) => {
+export const usePullToRefresh = (onRefresh, threshold = 120) => {
     const [pullDistance, setPullDistance] = useState(0);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const startY = useRef(0);
-    const isActive = useRef(false);  // Only true when we started a valid pull gesture
+    const currentY = useRef(0);
+    const isActive = useRef(false);
 
     useEffect(() => {
+        let animationFrame;
+
+        const updatePull = () => {
+            if (isActive.current && !isRefreshing) {
+                const distance = currentY.current - startY.current;
+                if (distance > 0) {
+                    // Use easing for smoother pull feel (like rubber band)
+                    const easedDistance = Math.pow(distance, 0.7);
+                    setPullDistance(easedDistance);
+                } else {
+                    setPullDistance(0);
+                }
+            }
+            animationFrame = requestAnimationFrame(updatePull);
+        };
+
         const handleTouchStart = (e) => {
-            // Only activate if we're at the very top of the page
-            if (window.scrollY === 0) {
+            if (window.scrollY === 0 && !isRefreshing) {
                 startY.current = e.touches[0].clientY;
+                currentY.current = e.touches[0].clientY;
                 isActive.current = true;
-            } else {
-                isActive.current = false;
             }
         };
 
         const handleTouchMove = (e) => {
-            // Not in pull mode or refreshing, ignore
             if (!isActive.current || isRefreshing) return;
 
-            const currentY = e.touches[0].clientY;
-            const distance = currentY - startY.current;
+            currentY.current = e.touches[0].clientY;
+            const distance = currentY.current - startY.current;
 
-            // Only process if pulling DOWN and still at top
-            if (distance > 10 && window.scrollY === 0) {
-                // Prevent default scroll behavior during pull
+            // Prevent scroll when pulling down at top
+            if (distance > 5 && window.scrollY === 0) {
                 e.preventDefault();
-                setPullDistance(Math.min(distance, threshold * 1.5));
-            } else if (distance <= 0) {
-                // User pulled back up - cancel the gesture
-                setPullDistance(0);
-                isActive.current = false;
             }
         };
 
         const handleTouchEnd = async () => {
-            if (!isActive.current) {
-                setPullDistance(0);
-                return;
-            }
+            if (!isActive.current) return;
 
-            // Check if pulled enough to trigger refresh
-            if (pullDistance >= threshold && !isRefreshing) {
+            const finalDistance = Math.pow(currentY.current - startY.current, 0.7);
+
+            if (finalDistance >= threshold && !isRefreshing) {
                 setIsRefreshing(true);
-                setPullDistance(0);
-                isActive.current = false;
+                setPullDistance(threshold); // Keep at threshold during refresh
                 await onRefresh();
                 setIsRefreshing(false);
+                setPullDistance(0);
             } else {
-                // Not enough pull - just reset
+                // Animate back to 0 smoothly
                 setPullDistance(0);
             }
 
             isActive.current = false;
             startY.current = 0;
+            currentY.current = 0;
         };
 
-        // Use passive: false for touchmove so we can preventDefault
+        animationFrame = requestAnimationFrame(updatePull);
+
         document.addEventListener('touchstart', handleTouchStart, { passive: true });
         document.addEventListener('touchmove', handleTouchMove, { passive: false });
         document.addEventListener('touchend', handleTouchEnd, { passive: true });
 
         return () => {
+            cancelAnimationFrame(animationFrame);
             document.removeEventListener('touchstart', handleTouchStart);
             document.removeEventListener('touchmove', handleTouchMove);
             document.removeEventListener('touchend', handleTouchEnd);
         };
-    }, [onRefresh, threshold, pullDistance, isRefreshing]);
+    }, [onRefresh, threshold, isRefreshing]);
+
+    // Calculate rotation based on pull distance (0 to 360 degrees)
+    const rotation = Math.min((pullDistance / threshold) * 360, 360);
+    const progress = Math.min(pullDistance / threshold, 1);
 
     return {
         pullDistance,
         isRefreshing,
         isPulling: pullDistance > 0,
-        isReadyToRefresh: pullDistance >= threshold
+        isReadyToRefresh: pullDistance >= threshold,
+        rotation,
+        progress
     };
 };
