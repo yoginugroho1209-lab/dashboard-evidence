@@ -12,6 +12,7 @@ import Technicians from './pages/Technicians'
 import UploadEvidence from './pages/UploadEvidence'
 
 import ForgotPassword from './pages/ForgotPassword'
+import UpdatePassword from './pages/UpdatePassword'
 
 function Layout({ children }) {
     const location = useLocation();
@@ -35,6 +36,7 @@ function App() {
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
                         <Route path="/forgot-password" element={<ForgotPassword />} />
+                        <Route path="/update-password" element={<UpdatePassword />} />
 
                         {/* Protected routes */}
                         <Route path="/" element={<ProtectedRoute><UploadEvidence /></ProtectedRoute>} />
