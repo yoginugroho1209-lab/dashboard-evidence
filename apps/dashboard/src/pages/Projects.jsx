@@ -8,7 +8,7 @@ const Projects = () => {
     const [projectName, setProjectName] = useState('');
     const [region, setRegion] = useState('TREG I Sumatera');
     const [description, setDescription] = useState('');
-    const [infrastructureType, setInfrastructureType] = useState('Tiang');
+    const [infrastructureType, setInfrastructureType] = useState('(All)');
     const [uploadStatus, setUploadStatus] = useState('idle'); // idle, parsing, saving, done, error
     const [error, setError] = useState(null);
     const [user, setUser] = useState(null);
@@ -380,10 +380,12 @@ const Projects = () => {
                                                     onChange={(e) => setInfrastructureType(e.target.value)}
                                                     className="w-full bg-[#131416] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
                                                 >
+                                                    <option value="(All)">(All)</option>
                                                     <option value="Tiang">Tiang</option>
                                                     <option value="ODC">ODC</option>
                                                     <option value="ODP">ODP</option>
                                                     <option value="Closure">Closure</option>
+                                                    <option value="Kabel">Kabel</option>
                                                 </select>
                                                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#97c4c0] pointer-events-none text-[18px]">expand_more</span>
                                             </div>
