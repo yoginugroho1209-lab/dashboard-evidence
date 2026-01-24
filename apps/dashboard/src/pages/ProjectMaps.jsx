@@ -331,34 +331,37 @@ const ProjectMaps = () => {
                 </div>
             </aside>
 
-            {/* TOGGLE SIDEBAR BUTTON - Always visible chevron */}
+            {/* TOGGLE SIDEBAR BUTTON - Bigger chevron */}
             <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={`fixed top-1/2 -translate-y-1/2 z-50 w-8 h-16 bg-primary text-white rounded-r-lg shadow-xl flex items-center justify-center transition-all duration-500 hover:w-10 ${sidebarOpen ? 'left-[320px]' : 'left-0'}`}
+                className={`fixed top-1/3 z-50 w-12 h-24 bg-primary text-white rounded-r-xl shadow-2xl flex items-center justify-center transition-all duration-500 hover:w-14 ${sidebarOpen ? 'left-[320px]' : 'left-0'}`}
             >
-                <span className="material-symbols-outlined text-xl">{sidebarOpen ? 'chevron_left' : 'chevron_right'}</span>
+                <span className="material-symbols-outlined text-3xl">{sidebarOpen ? 'chevron_left' : 'chevron_right'}</span>
             </button>
 
-            {/* GPS STATUS - Fixed Top Center with Pulse Animation */}
-            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60]">
-                <div className={`px-4 py-2.5 rounded-full text-sm font-semibold backdrop-blur-xl shadow-2xl flex items-center gap-2 ${userLocation ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-red-500/20 text-red-400 border border-red-500/40'}`} style={{ boxShadow: userLocation ? '0 0 30px rgba(16,185,129,0.3)' : '0 4px 20px rgba(0,0,0,0.3)' }}>
-                    <span className="relative flex h-3 w-3">
+            {/* GPS STATUS - Below toggle button */}
+            <div
+                className={`fixed z-[60] transition-all duration-500 ${sidebarOpen ? 'left-[332px]' : 'left-3'}`}
+                style={{ top: 'calc(33.33% + 60px)' }}
+            >
+                <div className={`px-4 py-3 rounded-xl text-base font-bold backdrop-blur-xl shadow-2xl flex items-center gap-3 ${userLocation ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/40' : 'bg-red-500/20 text-red-400 border-2 border-red-500/40'}`} style={{ boxShadow: userLocation ? '0 0 30px rgba(16,185,129,0.4)' : '0 4px 20px rgba(0,0,0,0.3)' }}>
+                    <span className="relative flex h-4 w-4">
                         {userLocation && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                        <span className={`relative inline-flex rounded-full h-3 w-3 ${userLocation ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                        <span className={`relative inline-flex rounded-full h-4 w-4 ${userLocation ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
                     </span>
-                    {userLocation ? 'GPS Aktif' : 'GPS Off'}
+                    {userLocation ? 'GPS' : 'Off'}
                 </div>
             </div>
 
-            {/* MY LOCATION BUTTON - Fixed Bottom Right, above nav panel */}
+            {/* MY LOCATION BUTTON - Bigger, Fixed Bottom Right */}
             {userLocation && (
                 <button
                     onClick={locateMe}
-                    className="fixed bottom-32 right-4 z-[60] w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-primary flex items-center justify-center shadow-2xl hover:bg-primary hover:text-white hover:scale-110 transition-all duration-300"
+                    className="fixed bottom-36 right-5 z-[60] w-16 h-16 rounded-2xl bg-white/15 backdrop-blur-xl border-2 border-primary/50 text-primary flex items-center justify-center shadow-2xl hover:bg-primary hover:text-white hover:scale-110 transition-all duration-300"
                     title="Lokasi Saya"
-                    style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(27,152,141,0.2)' }}
+                    style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.4), 0 0 25px rgba(27,152,141,0.3)' }}
                 >
-                    <span className="material-symbols-outlined text-3xl">my_location</span>
+                    <span className="material-symbols-outlined text-4xl">my_location</span>
                 </button>
             )}
 
