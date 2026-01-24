@@ -6,9 +6,9 @@ const Projects = () => {
     const [kmlFile, setKmlFile] = useState(null);
     const [parsedPoints, setParsedPoints] = useState([]);
     const [projectName, setProjectName] = useState('');
-    const [region, setRegion] = useState('Jawa Barat');
+    const [region, setRegion] = useState('TREG I Sumatera');
     const [description, setDescription] = useState('');
-    const [radiusTolerance, setRadiusTolerance] = useState(50);
+    const [infrastructureType, setInfrastructureType] = useState('Tiang');
     const [uploadStatus, setUploadStatus] = useState('idle'); // idle, parsing, saving, done, error
     const [error, setError] = useState(null);
     const [user, setUser] = useState(null);
@@ -359,27 +359,33 @@ const Projects = () => {
                                                     onChange={(e) => setRegion(e.target.value)}
                                                     className="w-full bg-[#131416] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
                                                 >
-                                                    <option>Jawa Barat</option>
-                                                    <option>Jawa Tengah</option>
-                                                    <option>Jawa Timur</option>
-                                                    <option>DKI Jakarta</option>
-                                                    <option>Sumatera Utara</option>
+                                                    <option value="TREG I Sumatera">TREG I Sumatera</option>
+                                                    <option value="TREG II Jabodetabek">TREG II Jabodetabek</option>
+                                                    <option value="TREG III Jawa Barat">TREG III Jawa Barat</option>
+                                                    <option value="TREG IV Jateng & DIY">TREG IV Jateng & DIY</option>
+                                                    <option value="TREG V Jatim Bali Nusra">TREG V Jatim Bali Nusra</option>
+                                                    <option value="TREG VI Kalimantan">TREG VI Kalimantan</option>
+                                                    <option value="TREG VII Kawasan Timur Indonesia">TREG VII KTI</option>
                                                 </select>
                                                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#97c4c0] pointer-events-none text-[18px]">expand_more</span>
                                             </div>
                                         </div>
 
-                                        {/* Radius Tolerance */}
+                                        {/* Infrastructure Type */}
                                         <div>
-                                            <label className="block text-[10px] uppercase tracking-wider text-[#97c4c0] font-bold mb-2">Radius Tolerance</label>
+                                            <label className="block text-[10px] uppercase tracking-wider text-[#97c4c0] font-bold mb-2">Jenis Infrastruktur</label>
                                             <div className="relative">
-                                                <input
-                                                    type="number"
-                                                    value={radiusTolerance}
-                                                    onChange={(e) => setRadiusTolerance(parseInt(e.target.value))}
-                                                    className="w-full bg-[#131416] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none"
-                                                />
-                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[#97c4c0] text-xs font-mono">m</span>
+                                                <select
+                                                    value={infrastructureType}
+                                                    onChange={(e) => setInfrastructureType(e.target.value)}
+                                                    className="w-full bg-[#131416] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
+                                                >
+                                                    <option value="Tiang">Tiang</option>
+                                                    <option value="ODC">ODC</option>
+                                                    <option value="ODP">ODP</option>
+                                                    <option value="Closure">Closure</option>
+                                                </select>
+                                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#97c4c0] pointer-events-none text-[18px]">expand_more</span>
                                             </div>
                                         </div>
                                     </div>
