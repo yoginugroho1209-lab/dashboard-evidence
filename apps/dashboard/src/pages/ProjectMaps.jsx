@@ -22,7 +22,7 @@ const ProjectMaps = () => {
     const [userHeading, setUserHeading] = useState(0);
     const [isNavigating, setIsNavigating] = useState(false);
     const [distance, setDistance] = useState(null);
-    const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [panelOpen, setPanelOpen] = useState(true);
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const userMarkerRef = useRef(null);
@@ -99,18 +99,15 @@ const ProjectMaps = () => {
         else { userMarkerRef.current = L.marker([loc.lat, loc.lng], { icon, zIndexOffset: 2000 }).addTo(mapInstanceRef.current); }
     };
 
-    // Create directional arrows along line
     const updateRouteLine = (userLoc, target) => {
         if (!mapInstanceRef.current || !window.L) return;
         const L = window.L;
         const map = mapInstanceRef.current;
 
-        // Clear existing
         if (lineRef.current) map.removeLayer(lineRef.current);
         arrowsRef.current.forEach(a => map.removeLayer(a));
         arrowsRef.current = [];
 
-        // Main line with glow effect
         const glowLine = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
             color: '#1B988D', weight: 12, opacity: 0.3, lineCap: 'round'
         }).addTo(map);
@@ -120,12 +117,10 @@ const ProjectMaps = () => {
         }).addTo(map);
         arrowsRef.current.push(glowLine);
 
-        // Calculate bearing for arrows
         const bearing = calcBearing(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
         const dist = calcDist(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
         const numArrows = Math.min(Math.max(Math.floor(dist / 50), 2), 10);
 
-        // Add directional arrows along the path
         for (let i = 1; i <= numArrows; i++) {
             const fraction = i / (numArrows + 1);
             const lat = userLoc.lat + (target.latitude - userLoc.lat) * fraction;
@@ -269,91 +264,92 @@ const ProjectMaps = () => {
         if (points.length > 0) addPoints(points, pointsWithEvidence);
     };
 
+    // Calculate top panel height for positioning
+    const topPanelHeight = points.length > 0 ? 180 : 130;
+
     return (
         <main className="flex-1 h-full overflow-hidden bg-background-dark relative">
             <style>{`
                 @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }
-                @keyframes slideIn { from{transform:translateX(-100%);opacity:0;} to{transform:translateX(0);opacity:1;} }
+                @keyframes slideDown { from{transform:translateY(-100%);opacity:0;} to{transform:translateY(0);opacity:1;} }
                 @keyframes fadeIn { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
             `}</style>
 
             {/* FULL SCREEN MAP */}
             <div ref={mapRef} className="absolute inset-0 z-0"></div>
 
-            {/* FLOATING OVERLAY SIDEBAR - A. Requirements */}
-            <aside
-                className={`fixed top-16 left-0 h-[calc(100vh-4rem)] z-40 transition-all duration-500 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
-                style={{ width: '320px' }}
+            {/* TOP PANEL - ProjectMaps Controls (Area 1 in sketch) */}
+            <div
+                className={`fixed top-0 left-0 right-0 z-40 transition-all duration-500 ease-in-out ${panelOpen ? 'translate-y-0' : '-translate-y-full'}`}
             >
-                <div className="h-full bg-surface-dark/90 backdrop-blur-xl border-r border-border-dark shadow-2xl flex flex-col">
+                <div className="bg-surface-dark/95 backdrop-blur-xl border-b border-border-dark shadow-2xl">
                     {/* Header */}
-                    <div className="p-4 border-b border-border-dark/50">
-                        <h2 className="text-white font-bold text-xl mb-4 flex items-center gap-2">
-                            <span className="material-symbols-outlined text-primary">explore</span>
-                            Project Maps
-                        </h2>
-                        <select value={selectedRegion} onChange={(e) => { setSelectedRegion(e.target.value); setSelectedProjectId(''); }} className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-lg h-11 px-4 mb-3 focus:border-primary focus:outline-none transition">
+                    <div className="flex items-center gap-3 px-4 py-3">
+                        <span className="material-symbols-outlined text-3xl text-primary">explore</span>
+                        <span className="font-bold text-xl text-white">Project Maps</span>
+                    </div>
+
+                    {/* Filters */}
+                    <div className="flex gap-3 px-4 pb-3">
+                        <select value={selectedRegion} onChange={(e) => { setSelectedRegion(e.target.value); setSelectedProjectId(''); }} className="flex-1 bg-white/5 border border-white/10 text-white text-base rounded-xl h-12 px-4 focus:border-primary focus:outline-none transition">
                             <option value="">Semua Region</option>
                             {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
-                        <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-lg h-11 px-4 focus:border-primary focus:outline-none transition">
+                        <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="flex-1 bg-white/5 border border-white/10 text-white text-base rounded-xl h-12 px-4 focus:border-primary focus:outline-none transition">
                             <option value="">Pilih Project</option>
                             {filteredProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                     </div>
 
-                    {/* Stats */}
+                    {/* Points horizontal scroll */}
                     {points.length > 0 && (
-                        <div className="px-4 py-3 border-b border-border-dark/50 flex items-center gap-3 text-sm">
-                            <span className="bg-primary/20 text-primary px-3 py-1 rounded-full font-bold">{points.length} Titik</span>
-                            <span className="flex items-center gap-1.5 text-slate-400"><span className="w-3 h-3 rounded-full bg-green-500"></span>Ada foto</span>
-                            <span className="flex items-center gap-1.5 text-slate-400"><span className="w-3 h-3 rounded-full bg-yellow-400"></span>Belum</span>
+                        <div className="border-t border-white/5 py-2 px-4">
+                            <div className="flex items-center gap-3 mb-2 text-sm text-slate-400">
+                                <span className="bg-primary/20 text-primary px-3 py-1 rounded-full font-bold text-base">{points.length}</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-500"></span>Foto</span>
+                                <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-yellow-400"></span>Belum</span>
+                            </div>
+                            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                {points.map((p, i) => (
+                                    <button
+                                        key={p.id}
+                                        onClick={() => clickPoint(p)}
+                                        className={`flex-shrink-0 px-4 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-2 ${selectedPoint?.id === p.id ? 'bg-primary text-white' : 'bg-white/5 text-white hover:bg-white/10'}`}
+                                    >
+                                        <span className={`w-2.5 h-2.5 rounded-full ${pointsWithEvidence.has(p.id) ? 'bg-green-500' : 'bg-yellow-400'}`}></span>
+                                        <span className="truncate max-w-[120px]">{p.point_id || p.name || `Titik ${i + 1}`}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     )}
-
-                    {/* Points List */}
-                    <div className="flex-1 overflow-y-auto">
-                        {points.map((p, i) => (
-                            <button key={p.id} onClick={() => clickPoint(p)} className={`w-full text-left px-4 py-3.5 border-b border-white/5 hover:bg-white/5 transition-all ${selectedPoint?.id === p.id ? 'bg-primary/15 border-l-4 border-l-primary' : ''}`}>
-                                <div className="flex items-center justify-between">
-                                    <span className="text-white font-medium truncate">{p.point_id || p.name || `Titik ${i + 1}`}</span>
-                                    <span className={`w-3 h-3 rounded-full flex-shrink-0 ${pointsWithEvidence.has(p.id) ? 'bg-green-500' : 'bg-yellow-400'}`}></span>
-                                </div>
-                            </button>
-                        ))}
-                        {points.length === 0 && selectedProjectId && (
-                            <div className="p-8 text-center text-slate-500">
-                                <span className="material-symbols-outlined text-4xl mb-2 block opacity-50">location_off</span>
-                                Tidak ada titik
-                            </div>
-                        )}
-                    </div>
                 </div>
-            </aside>
+            </div>
 
-            {/* TOGGLE SIDEBAR BUTTON - Bigger chevron */}
+            {/* TOGGLE PANEL BUTTON - Below top panel */}
             <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className={`fixed top-1/3 z-50 w-12 h-24 bg-primary text-white rounded-r-xl shadow-2xl flex items-center justify-center transition-all duration-500 hover:w-14 ${sidebarOpen ? 'left-[320px]' : 'left-0'}`}
+                onClick={() => setPanelOpen(!panelOpen)}
+                className={`fixed left-1/2 -translate-x-1/2 z-50 w-16 h-10 bg-primary text-white rounded-b-xl shadow-2xl flex items-center justify-center transition-all duration-500 hover:h-12`}
+                style={{ top: panelOpen ? `${topPanelHeight}px` : '0' }}
             >
-                <span className="material-symbols-outlined text-3xl">{sidebarOpen ? 'chevron_left' : 'chevron_right'}</span>
+                <span className="material-symbols-outlined text-3xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
             </button>
 
-            {/* GPS STATUS - Below toggle button */}
+            {/* GPS STATUS - Right below toggle button */}
             <div
-                className={`fixed z-[60] transition-all duration-500 ${sidebarOpen ? 'left-[332px]' : 'left-3'}`}
-                style={{ top: 'calc(33.33% + 60px)' }}
+                className="fixed left-1/2 -translate-x-1/2 z-50 transition-all duration-500"
+                style={{ top: panelOpen ? `${topPanelHeight + 50}px` : '50px' }}
             >
-                <div className={`px-4 py-3 rounded-xl text-base font-bold backdrop-blur-xl shadow-2xl flex items-center gap-3 ${userLocation ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/40' : 'bg-red-500/20 text-red-400 border-2 border-red-500/40'}`} style={{ boxShadow: userLocation ? '0 0 30px rgba(16,185,129,0.4)' : '0 4px 20px rgba(0,0,0,0.3)' }}>
+                <div className={`px-5 py-3 rounded-xl text-base font-bold backdrop-blur-xl shadow-2xl flex items-center gap-3 ${userLocation ? 'bg-emerald-500/20 text-emerald-400 border-2 border-emerald-500/40' : 'bg-red-500/20 text-red-400 border-2 border-red-500/40'}`} style={{ boxShadow: userLocation ? '0 0 30px rgba(16,185,129,0.4)' : '0 4px 20px rgba(0,0,0,0.3)' }}>
                     <span className="relative flex h-4 w-4">
                         {userLocation && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
                         <span className={`relative inline-flex rounded-full h-4 w-4 ${userLocation ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
                     </span>
-                    {userLocation ? 'GPS' : 'Off'}
+                    {userLocation ? 'GPS Aktif' : 'GPS Off'}
                 </div>
             </div>
 
-            {/* MY LOCATION BUTTON - Bigger, Fixed Bottom Right */}
+            {/* MY LOCATION BUTTON - Fixed Bottom Right */}
             {userLocation && (
                 <button
                     onClick={locateMe}
@@ -365,29 +361,26 @@ const ProjectMaps = () => {
                 </button>
             )}
 
-            {/* STICKY DISTANCE LABEL - B. Requirement - Fixed to viewport */}
+            {/* STICKY DISTANCE LABEL */}
             {selectedPoint && distance !== null && (
                 <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
-                    <div className="bg-primary text-white px-6 py-3 rounded-2xl text-xl font-bold shadow-2xl border-2 border-white/30" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                    <div className="bg-primary text-white px-8 py-4 rounded-2xl text-2xl font-bold shadow-2xl border-2 border-white/30" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
                         {fmtDist(distance)}
                     </div>
                 </div>
             )}
 
-            {/* NAVIGATION INFO PANEL - C. Requirements - Fixed Bottom Sheet */}
+            {/* NAVIGATION INFO PANEL - Fixed Bottom Sheet */}
             {selectedPoint && (
                 <div className="fixed bottom-0 left-0 right-0 z-50 p-4" style={{ animation: 'fadeIn 0.3s ease-out' }}>
                     <div className="max-w-lg mx-auto bg-surface-dark/95 backdrop-blur-xl rounded-2xl p-5 border border-border-dark shadow-2xl">
-                        {/* Header Row */}
                         <div className="flex items-center gap-4 mb-4">
-                            {/* Compass */}
                             {isNavigating && bearing !== null && (
                                 <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0 shadow-lg" style={{ boxShadow: '0 0 20px rgba(27,152,141,0.4)' }}>
                                     <span className="material-symbols-outlined text-3xl text-primary" style={{ transform: `rotate(${arrowRot}deg)`, transition: 'transform 0.2s' }}>navigation</span>
                                 </div>
                             )}
 
-                            {/* Info */}
                             <div className="flex-1 min-w-0">
                                 <h3 className="text-white font-bold text-lg truncate mb-1">{selectedPoint.point_id || selectedPoint.name}</h3>
                                 <div className="flex items-center gap-2">
@@ -400,37 +393,35 @@ const ProjectMaps = () => {
                                 </div>
                             </div>
 
-                            {/* Distance */}
                             <div className="text-right flex-shrink-0">
                                 <p className="text-4xl font-bold text-primary leading-none" style={{ textShadow: '0 0 20px rgba(27,152,141,0.3)' }}>{fmtDist(distance)}</p>
                             </div>
                         </div>
 
-                        {/* Action Buttons */}
                         <div className="flex gap-3">
                             {!isNavigating ? (
                                 <button onClick={() => setIsNavigating(true)} className="flex-1 py-3.5 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 shadow-lg hover:bg-primary/90 transition-all text-base">
-                                    <span className="material-symbols-outlined">navigation</span>
+                                    <span className="material-symbols-outlined text-2xl">navigation</span>
                                     Mulai Navigasi
                                 </button>
                             ) : (
                                 <>
-                                    <button onClick={() => setIsNavigating(false)} className="px-5 py-3.5 rounded-xl bg-slate-700 text-white font-medium hover:bg-slate-600 transition">
+                                    <button onClick={() => setIsNavigating(false)} className="px-5 py-3.5 rounded-xl bg-slate-700 text-white font-medium hover:bg-slate-600 transition text-base">
                                         Stop
                                     </button>
                                     <a
                                         href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPoint.latitude},${selectedPoint.longitude}&travelmode=walking`}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="flex-1 py-3.5 rounded-xl bg-blue-600 text-white font-semibold flex items-center justify-center gap-2 shadow-lg hover:bg-blue-500 transition-all"
+                                        className="flex-1 py-3.5 rounded-xl bg-blue-600 text-white font-semibold flex items-center justify-center gap-2 shadow-lg hover:bg-blue-500 transition-all text-base"
                                     >
-                                        <span className="material-symbols-outlined">open_in_new</span>
-                                        Buka Google Maps
+                                        <span className="material-symbols-outlined text-2xl">open_in_new</span>
+                                        Google Maps
                                     </a>
                                 </>
                             )}
                             <button onClick={closeNav} className="px-4 py-3.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition">
-                                <span className="material-symbols-outlined">close</span>
+                                <span className="material-symbols-outlined text-2xl">close</span>
                             </button>
                         </div>
                     </div>
@@ -442,7 +433,7 @@ const ProjectMaps = () => {
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-surface-dark/80 backdrop-blur-sm z-10">
                     <span className="material-symbols-outlined text-8xl mb-4 opacity-20">explore</span>
                     <p className="text-2xl font-semibold text-white mb-2">Project Maps</p>
-                    <p className="text-base">Pilih project dari sidebar untuk melihat titik lokasi</p>
+                    <p className="text-lg">Pilih project dari panel atas</p>
                 </div>
             )}
         </main>
