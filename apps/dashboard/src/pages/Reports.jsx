@@ -217,8 +217,29 @@ const Reports = () => {
     </Style>
 `;
 
-        // Add points from project
-        evidenceList.forEach((item, idx) => {
+        // Organize points by category and infrastructure type
+        const organized = {
+            'Existing': { 'ODC': [], 'ODP': [], 'Tiang': [], 'Kabel': [], 'Closure': [], 'Other': [] },
+            'Plan': { 'ODC': [], 'ODP': [], 'Tiang': [], 'Kabel': [], 'Closure': [], 'Other': [] },
+            'Uncategorized': []
+        };
+
+        // Process all evidence items
+        const allItems = [...evidenceList];
+        if (includeStandalone) {
+            standaloneEvidence.forEach((item, idx) => {
+                allItems.push({
+                    ...item,
+                    point_id: `Photo-${idx + 1}`,
+                    name: `Photo Evidence ${idx + 1}`,
+                    latitude: item.exif_latitude,
+                    longitude: item.exif_longitude,
+                    isStandalone: true
+                });
+            });
+        }
+
+        allItems.forEach((item, idx) => {
             const hasEvidence = item.evidence?.length > 0 || item.photo_url;
             const photoUrl = item.photo_url || item.evidence?.[0]?.photo_url || '';
             const name = item.point_id || item.name || `Point ${idx + 1}`;
@@ -228,10 +249,9 @@ const Reports = () => {
             const infraType = evidenceItem.infrastructure_type || item.infrastructure_type || '';
             const category = evidenceItem.category || item.category || '';
 
-            // Determine coordinates based on useExifCoords setting
+            // Determine coordinates
             let lat, lng, coordSource;
             if (useExifCoords && hasEvidence) {
-                // Use EXIF coordinates from evidence if available
                 const exifLat = evidenceItem.exif_latitude;
                 const exifLng = evidenceItem.exif_longitude;
                 if (exifLat && exifLng) {
@@ -249,69 +269,107 @@ const Reports = () => {
                 coordSource = item.latitude ? 'KML Point' : 'EXIF Photo';
             }
 
-            // Determine style based on infrastructure type (if has evidence with type) or default
+            if (!lat || !lng) return;
+
+            // Determine style
             let styleId = hasEvidence ? 'evidencePoint' : 'pendingPoint';
             if (hasEvidence && infraType && ['ODC', 'ODP', 'Tiang', 'Kabel', 'Closure'].includes(infraType)) {
                 styleId = infraType;
             }
 
-            if (lat && lng) {
-                kmlContent += `
-    <Placemark>
-        <name>${name}</name>
-        <description><![CDATA[
-            <b>Status:</b> ${hasEvidence ? 'Evidence Captured' : 'Pending'}<br/>
-            ${category ? `<b>Kategori:</b> ${category}<br/>` : ''}
-            ${infraType ? `<b>Jenis:</b> ${infraType}<br/>` : ''}
-            <b>Coordinates:</b> ${lat}, ${lng}<br/>
-            <b>Source:</b> ${coordSource}<br/>
-            ${photoUrl ? `<img src="${photoUrl}" width="200"/>` : 'No photo available'}
-        ]]></description>
-        <styleUrl>#${styleId}</styleUrl>
-        <Point>
-            <coordinates>${lng},${lat},0</coordinates>
-        </Point>
-    </Placemark>`;
+            const pointData = {
+                name,
+                lat,
+                lng,
+                coordSource,
+                hasEvidence,
+                photoUrl,
+                infraType,
+                category,
+                styleId,
+                timestamp: item.exif_timestamp ? new Date(item.exif_timestamp).toLocaleString() : '',
+                device: item.exif_device || evidenceItem?.exif_device || ''
+            };
+
+            // Organize into folders
+            if (category && organized[category]) {
+                if (infraType && organized[category][infraType]) {
+                    organized[category][infraType].push(pointData);
+                } else if (infraType) {
+                    organized[category]['Other'].push(pointData);
+                } else {
+                    organized[category]['Other'].push(pointData);
+                }
+            } else {
+                organized['Uncategorized'].push(pointData);
             }
         });
 
-        // Add standalone evidence (photos with EXIF but no matched KML point)
-        if (includeStandalone) {
-            standaloneEvidence.forEach((item, idx) => {
-                const lat = item.exif_latitude;
-                const lng = item.exif_longitude;
-                const photoUrl = item.photo_url || '';
-                const timestamp = item.exif_timestamp ? new Date(item.exif_timestamp).toLocaleString() : 'Unknown';
-                const infraType = item.infrastructure_type || '';
-                const category = item.category || '';
+        // Generate placemark XML
+        const generatePlacemark = (point) => {
+            return `
+            <Placemark>
+                <name>${point.name}</name>
+                <description><![CDATA[
+                    <b>Status:</b> ${point.hasEvidence ? 'Evidence Captured' : 'Pending'}<br/>
+                    ${point.category ? `<b>Kategori:</b> ${point.category}<br/>` : ''}
+                    ${point.infraType ? `<b>Jenis:</b> ${point.infraType}<br/>` : ''}
+                    <b>Coordinates:</b> ${point.lat}, ${point.lng}<br/>
+                    <b>Source:</b> ${point.coordSource}<br/>
+                    ${point.timestamp ? `<b>Captured:</b> ${point.timestamp}<br/>` : ''}
+                    ${point.device ? `<b>Device:</b> ${point.device}<br/>` : ''}
+                    ${point.photoUrl ? `<img src="${point.photoUrl}" width="200"/>` : 'No photo available'}
+                ]]></description>
+                <styleUrl>#${point.styleId}</styleUrl>
+                <Point>
+                    <coordinates>${point.lng},${point.lat},0</coordinates>
+                </Point>
+            </Placemark>`;
+        };
 
-                // Determine style based on infrastructure type
-                let styleId = 'exifPoint';
-                if (infraType && ['ODC', 'ODP', 'Tiang', 'Kabel', 'Closure'].includes(infraType)) {
-                    styleId = infraType;
-                }
+        // Build folder structure
+        ['Existing', 'Plan'].forEach(cat => {
+            const categoryData = organized[cat];
+            const infraTypes = ['ODC', 'ODP', 'Tiang', 'Kabel', 'Closure', 'Other'];
+            const hasAnyPoints = infraTypes.some(type => categoryData[type].length > 0);
 
-                if (lat && lng) {
-                    kmlContent += `
-    <Placemark>
-        <name>${infraType || '📷'} - Photo ${idx + 1}</name>
-        <description><![CDATA[
-            <b>Type:</b> Standalone Photo Evidence<br/>
-            ${category ? `<b>Kategori:</b> ${category}<br/>` : ''}
-            ${infraType ? `<b>Jenis:</b> ${infraType}<br/>` : ''}
-            <b>Coordinates:</b> ${lat}, ${lng}<br/>
-            <b>Source:</b> EXIF Photo<br/>
-            <b>Captured:</b> ${timestamp}<br/>
-            <b>Device:</b> ${item.exif_device || 'Unknown'}<br/>
-            ${photoUrl ? `<img src="${photoUrl}" width="200"/>` : ''}
-        ]]></description>
-        <styleUrl>#${styleId}</styleUrl>
-        <Point>
-            <coordinates>${lng},${lat},0</coordinates>
-        </Point>
-    </Placemark>`;
-                }
+            if (hasAnyPoints) {
+                kmlContent += `
+    <Folder>
+        <name>${cat.toUpperCase()}</name>
+        <open>1</open>`;
+
+                infraTypes.forEach(infraType => {
+                    const points = categoryData[infraType];
+                    if (points.length > 0) {
+                        kmlContent += `
+        <Folder>
+            <name>${infraType}</name>
+            <open>0</open>`;
+                        points.forEach(point => {
+                            kmlContent += generatePlacemark(point);
+                        });
+                        kmlContent += `
+        </Folder>`;
+                    }
+                });
+
+                kmlContent += `
+    </Folder>`;
+            }
+        });
+
+        // Add uncategorized points
+        if (organized['Uncategorized'].length > 0) {
+            kmlContent += `
+    <Folder>
+        <name>Uncategorized</name>
+        <open>0</open>`;
+            organized['Uncategorized'].forEach(point => {
+                kmlContent += generatePlacemark(point);
             });
+            kmlContent += `
+    </Folder>`;
         }
 
         kmlContent += `
