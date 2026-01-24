@@ -8,7 +8,8 @@ const Projects = () => {
     const [projectName, setProjectName] = useState('');
     const [region, setRegion] = useState('TREG I Sumatera');
     const [description, setDescription] = useState('');
-    const [infrastructureType, setInfrastructureType] = useState('(All)');
+    const [category, setCategory] = useState('Semua');
+    const [infrastructureType, setInfrastructureType] = useState('Semua');
     const [uploadStatus, setUploadStatus] = useState('idle'); // idle, parsing, saving, done, error
     const [error, setError] = useState(null);
     const [user, setUser] = useState(null);
@@ -349,23 +350,40 @@ const Projects = () => {
                                         />
                                     </div>
 
+                                    {/* Region */}
+                                    <div>
+                                        <label className="block text-[10px] uppercase tracking-wider text-[#97c4c0] font-bold mb-2">Region</label>
+                                        <div className="relative">
+                                            <select
+                                                value={region}
+                                                onChange={(e) => setRegion(e.target.value)}
+                                                className="w-full bg-[#131416] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
+                                            >
+                                                <option value="TREG I Sumatera">TREG I Sumatera</option>
+                                                <option value="TREG II Jabodetabek">TREG II Jabodetabek</option>
+                                                <option value="TREG III Jawa Barat">TREG III Jawa Barat</option>
+                                                <option value="TREG IV Jateng & DIY">TREG IV Jateng & DIY</option>
+                                                <option value="TREG V Jatim Bali Nusra">TREG V Jatim Bali Nusra</option>
+                                                <option value="TREG VI Kalimantan">TREG VI Kalimantan</option>
+                                                <option value="TREG VII Kawasan Timur Indonesia">TREG VII KTI</option>
+                                            </select>
+                                            <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#97c4c0] pointer-events-none text-[18px]">expand_more</span>
+                                        </div>
+                                    </div>
+
                                     <div className="grid grid-cols-2 gap-4">
-                                        {/* Region */}
+                                        {/* Category */}
                                         <div>
-                                            <label className="block text-[10px] uppercase tracking-wider text-[#97c4c0] font-bold mb-2">Region</label>
+                                            <label className="block text-[10px] uppercase tracking-wider text-[#97c4c0] font-bold mb-2">Kategori</label>
                                             <div className="relative">
                                                 <select
-                                                    value={region}
-                                                    onChange={(e) => setRegion(e.target.value)}
+                                                    value={category}
+                                                    onChange={(e) => setCategory(e.target.value)}
                                                     className="w-full bg-[#131416] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
                                                 >
-                                                    <option value="TREG I Sumatera">TREG I Sumatera</option>
-                                                    <option value="TREG II Jabodetabek">TREG II Jabodetabek</option>
-                                                    <option value="TREG III Jawa Barat">TREG III Jawa Barat</option>
-                                                    <option value="TREG IV Jateng & DIY">TREG IV Jateng & DIY</option>
-                                                    <option value="TREG V Jatim Bali Nusra">TREG V Jatim Bali Nusra</option>
-                                                    <option value="TREG VI Kalimantan">TREG VI Kalimantan</option>
-                                                    <option value="TREG VII Kawasan Timur Indonesia">TREG VII KTI</option>
+                                                    <option value="Semua">Semua</option>
+                                                    <option value="Existing">Existing</option>
+                                                    <option value="Plan">Plan</option>
                                                 </select>
                                                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#97c4c0] pointer-events-none text-[18px]">expand_more</span>
                                             </div>
@@ -380,12 +398,12 @@ const Projects = () => {
                                                     onChange={(e) => setInfrastructureType(e.target.value)}
                                                     className="w-full bg-[#131416] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
                                                 >
-                                                    <option value="(All)">(All)</option>
-                                                    <option value="Tiang">Tiang</option>
+                                                    <option value="Semua">Semua</option>
                                                     <option value="ODC">ODC</option>
+                                                    <option value="Tiang">Tiang</option>
                                                     <option value="ODP">ODP</option>
-                                                    <option value="Closure">Closure</option>
                                                     <option value="Kabel">Kabel</option>
+                                                    <option value="Closure">Closure</option>
                                                 </select>
                                                 <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#97c4c0] pointer-events-none text-[18px]">expand_more</span>
                                             </div>
