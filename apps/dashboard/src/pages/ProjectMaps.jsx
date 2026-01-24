@@ -14,6 +14,7 @@ const REGIONS = [
 const ProjectMaps = () => {
     const [projects, setProjects] = useState([]);
     const [points, setPoints] = useState([]);
+    const [pointsWithEvidence, setPointsWithEvidence] = useState(new Set());
     const [selectedRegion, setSelectedRegion] = useState('');
     const [selectedProjectId, setSelectedProjectId] = useState('');
     const [selectedPoint, setSelectedPoint] = useState(null);
@@ -28,6 +29,7 @@ const ProjectMaps = () => {
     const userMarkerRef = useRef(null);
     const pointMarkersRef = useRef({});
     const lineRef = useRef(null);
+    const distanceLabelRef = useRef(null);
     const selectedPointRef = useRef(null);
 
     // Fetch projects on mount
@@ -66,9 +68,8 @@ const ProjectMaps = () => {
                 boxZoom: true,
                 keyboard: true,
                 dragging: true
-            }).setView([-6.2088, 106.8456], 15);
+            }).setView([-6.2088, 106.8456], 17);
 
-            // Default OpenStreetMap tiles - reliable at all zoom levels
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap',
                 maxZoom: 19
@@ -109,7 +110,6 @@ const ProjectMaps = () => {
             { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 }
         );
 
-        // Compass heading
         const handleOrientation = (e) => {
             let h = e.webkitCompassHeading || (e.alpha ? 360 - e.alpha : null);
             if (h !== null && !isNaN(h)) {
@@ -131,60 +131,52 @@ const ProjectMaps = () => {
         if (!mapInstanceRef.current || !window.L) return;
         const L = window.L;
 
-        // Big, visible user marker with direction arrow
         const icon = L.divIcon({
             className: 'user-marker-icon',
             html: `
-                <div style="
-                    width: 50px; 
-                    height: 50px; 
-                    position: relative;
-                ">
-                    <!-- Direction arrow -->
+                <div style="width: 56px; height: 56px; position: relative;">
                     <div style="
                         position: absolute;
-                        top: -5px;
+                        top: 0;
                         left: 50%;
                         transform: translateX(-50%) rotate(${heading || 0}deg);
-                        transform-origin: center 30px;
+                        transform-origin: center 28px;
                         transition: transform 0.3s ease;
                     ">
                         <div style="
                             width: 0;
                             height: 0;
-                            border-left: 10px solid transparent;
-                            border-right: 10px solid transparent;
-                            border-bottom: 18px solid #1B988D;
+                            border-left: 12px solid transparent;
+                            border-right: 12px solid transparent;
+                            border-bottom: 22px solid #1B988D;
                         "></div>
                     </div>
-                    <!-- Center dot -->
                     <div style="
                         position: absolute;
                         top: 50%;
                         left: 50%;
                         transform: translate(-50%, -50%);
-                        width: 28px;
-                        height: 28px;
+                        width: 32px;
+                        height: 32px;
                         background: #1B988D;
                         border: 4px solid white;
                         border-radius: 50%;
-                        box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+                        box-shadow: 0 3px 12px rgba(0,0,0,0.5);
                     "></div>
-                    <!-- Accuracy ring -->
                     <div style="
                         position: absolute;
                         top: 50%;
                         left: 50%;
                         transform: translate(-50%, -50%);
-                        width: 44px;
-                        height: 44px;
-                        border: 3px solid rgba(27,152,141,0.3);
+                        width: 50px;
+                        height: 50px;
+                        border: 3px solid rgba(27,152,141,0.4);
                         border-radius: 50%;
                     "></div>
                 </div>
             `,
-            iconSize: [50, 50],
-            iconAnchor: [25, 25]
+            iconSize: [56, 56],
+            iconAnchor: [28, 28]
         });
 
         if (userMarkerRef.current) {
@@ -197,12 +189,13 @@ const ProjectMaps = () => {
             }).addTo(mapInstanceRef.current);
         }
 
-        // Update navigation line
         if (selectedPointRef.current && lineRef.current) {
             lineRef.current.setLatLngs([
                 [loc.lat, loc.lng],
                 [selectedPointRef.current.latitude, selectedPointRef.current.longitude]
             ]);
+            // Update distance label position
+            updateDistanceLabel(loc, selectedPointRef.current);
         }
     };
 
@@ -212,28 +205,77 @@ const ProjectMaps = () => {
         setDistance(d);
     };
 
-    // Fetch points
+    const updateDistanceLabel = (loc, target) => {
+        if (!mapInstanceRef.current || !window.L) return;
+        const L = window.L;
+
+        // Calculate midpoint
+        const midLat = (loc.lat + target.latitude) / 2;
+        const midLng = (loc.lng + target.longitude) / 2;
+        const d = calculateDistance(loc.lat, loc.lng, target.latitude, target.longitude);
+        const distText = d < 1000 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(1)} km`;
+
+        if (distanceLabelRef.current) {
+            distanceLabelRef.current.setLatLng([midLat, midLng]);
+            distanceLabelRef.current.setIcon(L.divIcon({
+                className: 'distance-label',
+                html: `<div style="
+                    background: #1B988D;
+                    color: white;
+                    padding: 6px 12px;
+                    border-radius: 20px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    white-space: nowrap;
+                    box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+                    border: 2px solid white;
+                ">${distText}</div>`,
+                iconSize: [80, 30],
+                iconAnchor: [40, 15]
+            }));
+        }
+    };
+
+    // Fetch points with evidence status
     useEffect(() => {
         if (!selectedProjectId) {
             setPoints([]);
+            setPointsWithEvidence(new Set());
             clearAllMarkers();
             return;
         }
 
         const fetchPoints = async () => {
-            const { data } = await supabase
+            // Fetch points
+            const { data: pointsData } = await supabase
                 .from('points')
                 .select('*')
                 .eq('project_id', selectedProjectId)
                 .order('point_id', { ascending: true });
 
-            if (data) {
-                setPoints(data);
+            // Fetch evidence to know which points have photos
+            const { data: evidenceData } = await supabase
+                .from('evidence')
+                .select('point_id')
+                .eq('project_id', selectedProjectId);
+
+            if (pointsData) {
+                setPoints(pointsData);
+
+                // Create set of point IDs that have evidence
+                const evidencePointIds = new Set();
+                if (evidenceData) {
+                    evidenceData.forEach(e => {
+                        if (e.point_id) evidencePointIds.add(e.point_id);
+                    });
+                }
+                setPointsWithEvidence(evidencePointIds);
+
                 setSelectedPoint(null);
                 selectedPointRef.current = null;
                 setIsNavigating(false);
                 setDistance(null);
-                setTimeout(() => addPointsToMap(data), 200);
+                setTimeout(() => addPointsToMap(pointsData, evidencePointIds), 200);
             }
         };
         fetchPoints();
@@ -248,9 +290,13 @@ const ProjectMaps = () => {
             mapInstanceRef.current.removeLayer(lineRef.current);
             lineRef.current = null;
         }
+        if (distanceLabelRef.current && mapInstanceRef.current) {
+            mapInstanceRef.current.removeLayer(distanceLabelRef.current);
+            distanceLabelRef.current = null;
+        }
     };
 
-    const addPointsToMap = (pointsData) => {
+    const addPointsToMap = (pointsData, evidenceSet) => {
         if (!mapInstanceRef.current || !window.L || !pointsData.length) return;
         const L = window.L;
         const map = mapInstanceRef.current;
@@ -262,7 +308,8 @@ const ProjectMaps = () => {
             if (!point.latitude || !point.longitude) return;
 
             const name = point.point_id || point.name || `Titik ${idx + 1}`;
-            const marker = createPointMarker(L, point, name, false);
+            const hasEvidence = evidenceSet.has(point.id);
+            const marker = createPointMarker(L, point, name, false, hasEvidence);
             marker.addTo(map);
             marker.on('click', () => handlePointClick(point));
 
@@ -271,44 +318,61 @@ const ProjectMaps = () => {
         });
 
         if (userLocation) bounds.extend([userLocation.lat, userLocation.lng]);
-        if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 17 });
+        if (bounds.isValid()) map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
     };
 
-    const createPointMarker = (L, point, name, isSelected) => {
+    // Colors: RED = has evidence, YELLOW = no evidence
+    const createPointMarker = (L, point, name, isSelected, hasEvidence) => {
+        // RED for evidence, YELLOW for no evidence
+        const color = hasEvidence ? '#EF4444' : '#FBBF24';
+        const selectedColor = '#1B988D';
+        const bgColor = isSelected ? selectedColor : color;
+
         const icon = L.divIcon({
             className: 'point-marker-icon',
             html: `
                 <div style="position: relative; cursor: pointer;">
                     <div style="
-                        width: ${isSelected ? '36px' : '28px'};
-                        height: ${isSelected ? '36px' : '28px'};
-                        background: ${isSelected ? '#1B988D' : '#EF4444'};
+                        width: ${isSelected ? '40px' : '30px'};
+                        height: ${isSelected ? '40px' : '30px'};
+                        background: ${bgColor};
                         border: ${isSelected ? '4px' : '3px'} solid white;
                         border-radius: 50%;
-                        box-shadow: 0 3px 10px rgba(0,0,0,0.4);
+                        box-shadow: 0 3px 12px rgba(0,0,0,0.5);
                         ${isSelected ? 'animation: pointPulse 1.5s infinite;' : ''}
                     "></div>
                     <div style="
                         position: absolute;
-                        top: ${isSelected ? '42px' : '34px'};
+                        top: ${isSelected ? '46px' : '36px'};
                         left: 50%;
                         transform: translateX(-50%);
-                        background: ${isSelected ? '#1B988D' : 'rgba(0,0,0,0.85)'};
+                        background: ${isSelected ? selectedColor : 'rgba(0,0,0,0.9)'};
                         color: white;
-                        padding: ${isSelected ? '5px 10px' : '3px 8px'};
-                        border-radius: 6px;
-                        font-size: ${isSelected ? '12px' : '11px'};
+                        padding: ${isSelected ? '6px 12px' : '4px 8px'};
+                        border-radius: 8px;
+                        font-size: ${isSelected ? '13px' : '11px'};
                         font-weight: 600;
                         white-space: nowrap;
-                        max-width: 140px;
+                        max-width: 160px;
                         overflow: hidden;
                         text-overflow: ellipsis;
-                        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
                     ">${name}</div>
+                    ${!isSelected ? `<div style="
+                        position: absolute;
+                        top: 4px;
+                        right: -4px;
+                        width: 12px;
+                        height: 12px;
+                        background: ${hasEvidence ? '#22C55E' : '#94A3B8'};
+                        border: 2px solid white;
+                        border-radius: 50%;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                    "></div>` : ''}
                 </div>
             `,
-            iconSize: [isSelected ? 36 : 28, 70],
-            iconAnchor: [isSelected ? 18 : 14, isSelected ? 18 : 14]
+            iconSize: [isSelected ? 40 : 30, 80],
+            iconAnchor: [isSelected ? 20 : 15, isSelected ? 20 : 15]
         });
 
         return L.marker([point.latitude, point.longitude], {
@@ -322,19 +386,21 @@ const ProjectMaps = () => {
         const L = window.L;
         const map = mapInstanceRef.current;
 
-        // Update previous selected marker to normal
+        // Reset previous marker
         if (selectedPointRef.current && pointMarkersRef.current[selectedPointRef.current.id]) {
             const prevName = selectedPointRef.current.point_id || selectedPointRef.current.name || 'Titik';
-            const prevMarker = createPointMarker(L, selectedPointRef.current, prevName, false);
+            const prevHasEvidence = pointsWithEvidence.has(selectedPointRef.current.id);
+            const prevMarker = createPointMarker(L, selectedPointRef.current, prevName, false, prevHasEvidence);
             map.removeLayer(pointMarkersRef.current[selectedPointRef.current.id]);
             prevMarker.addTo(map);
             prevMarker.on('click', () => handlePointClick(selectedPointRef.current));
             pointMarkersRef.current[selectedPointRef.current.id] = prevMarker;
         }
 
-        // Update new selected marker
+        // Highlight selected marker
         const name = point.point_id || point.name || 'Titik';
-        const newMarker = createPointMarker(L, point, name, true);
+        const hasEvidence = pointsWithEvidence.has(point.id);
+        const newMarker = createPointMarker(L, point, name, true, hasEvidence);
         map.removeLayer(pointMarkersRef.current[point.id]);
         newMarker.addTo(map);
         newMarker.on('click', () => handlePointClick(point));
@@ -343,31 +409,57 @@ const ProjectMaps = () => {
         setSelectedPoint(point);
         selectedPointRef.current = point;
 
-        // Calculate and show distance
+        // Remove old line and label
+        if (lineRef.current) map.removeLayer(lineRef.current);
+        if (distanceLabelRef.current) map.removeLayer(distanceLabelRef.current);
+
         if (userLocation) {
             const d = calculateDistance(userLocation.lat, userLocation.lng, point.latitude, point.longitude);
             setDistance(d);
+            const distText = d < 1000 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(1)} km`;
 
             // Draw line
-            if (lineRef.current) map.removeLayer(lineRef.current);
             lineRef.current = L.polyline([
                 [userLocation.lat, userLocation.lng],
                 [point.latitude, point.longitude]
             ], {
                 color: '#1B988D',
-                weight: 4,
-                dashArray: '12, 8',
+                weight: 5,
+                dashArray: '15, 10',
                 opacity: 0.9
             }).addTo(map);
 
-            // Fit both in view
+            // Distance label at midpoint
+            const midLat = (userLocation.lat + point.latitude) / 2;
+            const midLng = (userLocation.lng + point.longitude) / 2;
+            distanceLabelRef.current = L.marker([midLat, midLng], {
+                icon: L.divIcon({
+                    className: 'distance-label',
+                    html: `<div style="
+                        background: #1B988D;
+                        color: white;
+                        padding: 8px 16px;
+                        border-radius: 24px;
+                        font-size: 16px;
+                        font-weight: bold;
+                        white-space: nowrap;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+                        border: 3px solid white;
+                    ">${distText}</div>`,
+                    iconSize: [100, 40],
+                    iconAnchor: [50, 20]
+                }),
+                zIndexOffset: 1500
+            }).addTo(map);
+
+            // Fit view - zoom in more
             const bounds = L.latLngBounds([
                 [userLocation.lat, userLocation.lng],
                 [point.latitude, point.longitude]
             ]);
-            map.fitBounds(bounds, { padding: [80, 80], maxZoom: 18 });
+            map.fitBounds(bounds, { padding: [100, 100], maxZoom: 19 });
         } else {
-            map.setView([point.latitude, point.longitude], 18);
+            map.setView([point.latitude, point.longitude], 19);
         }
     };
 
@@ -410,13 +502,18 @@ const ProjectMaps = () => {
             mapInstanceRef.current.removeLayer(lineRef.current);
             lineRef.current = null;
         }
-        // Reset all markers to normal
+        if (distanceLabelRef.current && mapInstanceRef.current) {
+            mapInstanceRef.current.removeLayer(distanceLabelRef.current);
+            distanceLabelRef.current = null;
+        }
+        // Reset all markers
         if (window.L && mapInstanceRef.current) {
             Object.keys(pointMarkersRef.current).forEach(id => {
                 const pt = points.find(p => p.id === id);
                 if (pt) {
                     const name = pt.point_id || pt.name || 'Titik';
-                    const marker = createPointMarker(window.L, pt, name, false);
+                    const hasEvidence = pointsWithEvidence.has(pt.id);
+                    const marker = createPointMarker(window.L, pt, name, false, hasEvidence);
                     mapInstanceRef.current.removeLayer(pointMarkersRef.current[id]);
                     marker.addTo(mapInstanceRef.current);
                     marker.on('click', () => handlePointClick(pt));
@@ -457,9 +554,19 @@ const ProjectMaps = () => {
                     </select>
 
                     {points.length > 0 && (
-                        <span className="text-[10px] text-primary bg-primary/10 px-2 py-1 rounded-full font-medium">
-                            {points.length} titik
-                        </span>
+                        <div className="flex items-center gap-2 text-[10px]">
+                            <span className="text-primary bg-primary/10 px-2 py-1 rounded-full font-medium">
+                                {points.length} titik
+                            </span>
+                            <span className="flex items-center gap-1 text-slate-400">
+                                <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
+                                Ada foto
+                            </span>
+                            <span className="flex items-center gap-1 text-slate-400">
+                                <span className="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+                                Belum
+                            </span>
+                        </div>
                     )}
                 </div>
 
@@ -482,7 +589,6 @@ const ProjectMaps = () => {
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-[#0d0e10] via-[#0d0e10]/98 to-transparent p-4 pt-16 z-10">
                         <div className="max-w-md mx-auto bg-surface-dark/90 backdrop-blur-lg rounded-2xl p-4 border border-border-dark shadow-2xl">
                             <div className="flex items-center gap-4 mb-4">
-                                {/* Compass - only show when navigating */}
                                 {isNavigating && bearing !== null && (
                                     <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
                                         <span
@@ -501,6 +607,12 @@ const ProjectMaps = () => {
                                     {selectedPoint.name && selectedPoint.point_id && (
                                         <p className="text-slate-400 text-sm truncate">{selectedPoint.name}</p>
                                     )}
+                                    <span className={`inline-block mt-1 text-[10px] px-2 py-0.5 rounded-full font-medium ${pointsWithEvidence.has(selectedPoint.id)
+                                            ? 'bg-green-500/20 text-green-400'
+                                            : 'bg-yellow-500/20 text-yellow-400'
+                                        }`}>
+                                        {pointsWithEvidence.has(selectedPoint.id) ? '✓ Ada Evidence' : '○ Belum ada Evidence'}
+                                    </span>
                                 </div>
 
                                 <div className="text-right flex-shrink-0">
