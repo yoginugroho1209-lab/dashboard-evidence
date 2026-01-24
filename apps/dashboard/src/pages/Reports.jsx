@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import ManageProjectsModal from '../components/ManageProjectsModal'
+import JSZip from 'jszip'
 
 const Reports = () => {
     const [projects, setProjects] = useState([]);
@@ -12,6 +13,8 @@ const Reports = () => {
     const [useExifCoords, setUseExifCoords] = useState(true); // Use EXIF coords for evidence in KML
     const [includeStandalone, setIncludeStandalone] = useState(true); // Include standalone evidence in export
     const [isManageModalOpen, setIsManageModalOpen] = useState(false);
+    const [selectedItems, setSelectedItems] = useState(new Set()); // Selected row IDs
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const fetchProjects = async () => {
         const { data, error } = await supabase
@@ -108,6 +111,187 @@ const Reports = () => {
 
         fetchAllData();
     }, [selectedProjectId]);
+
+    // Toggle item selection
+    const toggleSelection = (id) => {
+        setSelectedItems(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) {
+                newSet.delete(id);
+            } else {
+                newSet.add(id);
+            }
+            return newSet;
+        });
+    };
+
+    // Select/Deselect all
+    const toggleSelectAll = () => {
+        if (selectedItems.size === evidenceList.length) {
+            setSelectedItems(new Set());
+        } else {
+            setSelectedItems(new Set(evidenceList.map(item => item.id)));
+        }
+    };
+
+    // Download single photo
+    const handleDownloadPhoto = async (photoUrl, filename) => {
+        if (!photoUrl) return;
+        try {
+            const response = await fetch(photoUrl);
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename || 'evidence_photo.jpg';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Download error:', error);
+            alert('Gagal mendownload foto');
+        }
+    };
+
+    // Download multiple photos as ZIP
+    const handleDownloadSelectedPhotos = async () => {
+        const itemsToDownload = evidenceList.filter(item =>
+            selectedItems.has(item.id) && (item.photo_url || item.evidence?.[0]?.photo_url)
+        );
+
+        if (itemsToDownload.length === 0) {
+            alert('Tidak ada foto yang dipilih untuk didownload');
+            return;
+        }
+
+        setIsProcessing(true);
+        try {
+            const zip = new JSZip();
+
+            for (let i = 0; i < itemsToDownload.length; i++) {
+                const item = itemsToDownload[i];
+                const photoUrl = item.photo_url || item.evidence?.[0]?.photo_url;
+                const pointId = item.point_id || `photo_${i + 1}`;
+
+                try {
+                    const response = await fetch(photoUrl);
+                    const blob = await response.blob();
+                    zip.file(`${pointId}.jpg`, blob);
+                } catch (err) {
+                    console.error(`Failed to fetch ${pointId}:`, err);
+                }
+            }
+
+            const content = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `evidence_photos_${new Date().toISOString().split('T')[0]}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('ZIP error:', error);
+            alert('Gagal membuat ZIP file');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // Reset single point (remove evidence)
+    const handleResetPoint = async (pointId) => {
+        if (!confirm('Apakah Anda yakin ingin mereset titik ini? Evidence yang terhubung akan dihapus.')) return;
+
+        setIsProcessing(true);
+        try {
+            // Delete evidence records linked to this point
+            const { error } = await supabase
+                .from('evidence')
+                .delete()
+                .eq('point_id', pointId);
+
+            if (error) throw error;
+
+            // Refresh data
+            const { data: pointsData } = await supabase
+                .from('points')
+                .select('*')
+                .eq('project_id', selectedProjectId);
+
+            const { data: evidenceData } = await supabase
+                .from('evidence')
+                .select('*')
+                .eq('project_id', selectedProjectId);
+
+            if (pointsData && evidenceData) {
+                const pointsWithEvidence = pointsData.map(point => ({
+                    ...point,
+                    evidence: evidenceData.filter(e => e.point_id === point.id)
+                }));
+                setEvidenceList(pointsWithEvidence);
+            }
+
+            alert('Titik berhasil direset');
+        } catch (error) {
+            console.error('Reset error:', error);
+            alert('Gagal mereset titik');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // Reset multiple points
+    const handleResetSelectedPoints = async () => {
+        const pointsToReset = evidenceList.filter(item =>
+            selectedItems.has(item.id) && (item.photo_url || item.evidence?.length > 0)
+        );
+
+        if (pointsToReset.length === 0) {
+            alert('Tidak ada titik dengan evidence yang dipilih');
+            return;
+        }
+
+        if (!confirm(`Apakah Anda yakin ingin mereset ${pointsToReset.length} titik? Evidence yang terhubung akan dihapus.`)) return;
+
+        setIsProcessing(true);
+        try {
+            for (const item of pointsToReset) {
+                await supabase
+                    .from('evidence')
+                    .delete()
+                    .eq('point_id', item.id);
+            }
+
+            // Refresh data
+            const { data: pointsData } = await supabase
+                .from('points')
+                .select('*')
+                .eq('project_id', selectedProjectId);
+
+            const { data: evidenceData } = await supabase
+                .from('evidence')
+                .select('*')
+                .eq('project_id', selectedProjectId);
+
+            if (pointsData && evidenceData) {
+                const pointsWithEvidence = pointsData.map(point => ({
+                    ...point,
+                    evidence: evidenceData.filter(e => e.point_id === point.id)
+                }));
+                setEvidenceList(pointsWithEvidence);
+            }
+
+            setSelectedItems(new Set());
+            alert(`${pointsToReset.length} titik berhasil direset`);
+        } catch (error) {
+            console.error('Reset error:', error);
+            alert('Gagal mereset titik');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
 
     // Generate KML file for download
     const generateKML = () => {
@@ -599,6 +783,40 @@ const Reports = () => {
                         </div>
                     </div>
 
+                    {/* Bulk Actions Bar */}
+                    {selectedItems.size > 0 && (
+                        <div className="h-14 border-b border-primary/30 bg-primary/10 px-6 flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-primary">
+                                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                                <span className="text-sm font-medium">{selectedItems.size} item dipilih</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={handleDownloadSelectedPhotos}
+                                    disabled={isProcessing}
+                                    className="px-3 py-1.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 text-xs font-medium flex items-center gap-1 disabled:opacity-50"
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">download</span>
+                                    Download Foto
+                                </button>
+                                <button
+                                    onClick={handleResetSelectedPoints}
+                                    disabled={isProcessing}
+                                    className="px-3 py-1.5 rounded bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-medium flex items-center gap-1 disabled:opacity-50"
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">restart_alt</span>
+                                    Reset Titik
+                                </button>
+                                <button
+                                    onClick={() => setSelectedItems(new Set())}
+                                    className="px-3 py-1.5 rounded bg-slate-500/20 text-slate-400 hover:bg-slate-500/30 text-xs font-medium"
+                                >
+                                    Batal
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Table Container */}
                     <div className="flex-1 overflow-auto bg-[#18191b]">
                         {loading ? (
@@ -615,12 +833,21 @@ const Reports = () => {
                             <table className="w-full text-left border-collapse">
                                 <thead className="sticky top-0 bg-[#1c1e20] z-10 shadow-sm border-b border-border-dark">
                                     <tr>
-                                        <th className="py-3 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider w-16">No.</th>
+                                        <th className="py-3 px-3 w-10">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedItems.size === evidenceList.length && evidenceList.length > 0}
+                                                onChange={toggleSelectAll}
+                                                className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary cursor-pointer"
+                                            />
+                                        </th>
+                                        <th className="py-3 px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider w-12">No.</th>
                                         <th className="py-3 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Point ID</th>
                                         <th className="py-3 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Name</th>
                                         <th className="py-3 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Coordinates</th>
                                         <th className="py-3 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Photo</th>
-                                        <th className="py-3 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-right">Status</th>
+                                        <th className="py-3 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+                                        <th className="py-3 px-4 text-xs font-semibold text-slate-400 uppercase tracking-wider text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-border-dark">
@@ -631,16 +858,24 @@ const Reports = () => {
                                         const photoUrl = item.photo_url || item.evidence?.[0]?.photo_url;
 
                                         return (
-                                            <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
-                                                <td className="py-3 px-4 text-sm text-slate-500">{String(idx + 1).padStart(2, '0')}</td>
+                                            <tr key={item.id} className={`hover:bg-white/[0.02] transition-colors ${selectedItems.has(item.id) ? 'bg-primary/5' : ''}`}>
+                                                <td className="py-3 px-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedItems.has(item.id)}
+                                                        onChange={() => toggleSelection(item.id)}
+                                                        className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-primary focus:ring-primary cursor-pointer"
+                                                    />
+                                                </td>
+                                                <td className="py-3 px-2 text-sm text-slate-500">{String(idx + 1).padStart(2, '0')}</td>
                                                 <td className="py-3 px-4 text-sm font-mono text-white">{item.point_id || '-'}</td>
-                                                <td className="py-3 px-4 text-sm text-slate-400 truncate max-w-[150px]">{item.name || '-'}</td>
+                                                <td className="py-3 px-4 text-sm text-slate-400 truncate max-w-[120px]">{item.name || '-'}</td>
                                                 <td className="py-3 px-4 text-sm font-mono text-slate-400">
                                                     {lat && lng ? `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}` : '-'}
                                                 </td>
                                                 <td className="py-3 px-4">
                                                     {photoUrl ? (
-                                                        <div className="w-12 h-12 rounded bg-slate-800 border border-slate-700 overflow-hidden">
+                                                        <div className="w-10 h-10 rounded bg-slate-800 border border-slate-700 overflow-hidden">
                                                             <img
                                                                 src={photoUrl}
                                                                 alt="Evidence"
@@ -648,18 +883,40 @@ const Reports = () => {
                                                             />
                                                         </div>
                                                     ) : (
-                                                        <div className="w-12 h-12 rounded bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
-                                                            <span className="material-symbols-outlined text-[20px]">no_photography</span>
+                                                        <div className="w-10 h-10 rounded bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
+                                                            <span className="material-symbols-outlined text-[18px]">no_photography</span>
                                                         </div>
                                                     )}
                                                 </td>
-                                                <td className="py-3 px-4 text-right">
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium ${hasEvidence
+                                                <td className="py-3 px-4">
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${hasEvidence
                                                         ? 'bg-[#42C942]/10 text-[#42C942] border border-[#42C942]/20'
                                                         : 'bg-[#E6AA1A]/10 text-[#E6AA1A] border border-[#E6AA1A]/20'
                                                         }`}>
                                                         {hasEvidence ? 'Evidence' : 'Pending'}
                                                     </span>
+                                                </td>
+                                                <td className="py-3 px-4">
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        {photoUrl && (
+                                                            <button
+                                                                onClick={() => handleDownloadPhoto(photoUrl, `${item.point_id || 'photo'}.jpg`)}
+                                                                className="p-1.5 rounded hover:bg-blue-500/20 text-slate-400 hover:text-blue-400 transition-colors"
+                                                                title="Download Foto"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[18px]">download</span>
+                                                            </button>
+                                                        )}
+                                                        {hasEvidence && (
+                                                            <button
+                                                                onClick={() => handleResetPoint(item.id)}
+                                                                className="p-1.5 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors"
+                                                                title="Reset Titik"
+                                                            >
+                                                                <span className="material-symbols-outlined text-[18px]">restart_alt</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
