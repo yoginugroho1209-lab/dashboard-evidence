@@ -22,6 +22,43 @@ const Projects = () => {
         };
         getUser();
     }, []);
+    // Infrastructure type detection based on name prefix
+    const detectInfrastructureType = (name) => {
+        const upperName = name.toUpperCase();
+        if (upperName.startsWith('ODC') || upperName.includes('-ODC-')) return 'ODC';
+        if (upperName.startsWith('ODP') || upperName.includes('-ODP-')) return 'ODP';
+        if (upperName.startsWith('TIANG') || upperName.includes('-TIANG-') || upperName.includes('POLE')) return 'Tiang';
+        if (upperName.includes('CLOSURE') || upperName.includes('JC-') || upperName.includes('-JC')) return 'Closure';
+        if (upperName.includes('KABEL') || upperName.includes('CABLE') || upperName.includes('FO-')) return 'Kabel';
+        if (upperName.includes('DISTRIBUSI') || upperName.includes('DIST')) return 'Distribusi';
+        return 'Lainnya';
+    };
+
+    // Parse description to extract metadata
+    const parseDescription = (descText) => {
+        if (!descText) return {};
+        const metadata = {};
+        const lines = descText.split('\n');
+        lines.forEach(line => {
+            const match = line.match(/^([^:]+):\s*(.+)$/);
+            if (match) {
+                const key = match[1].trim().toLowerCase().replace(/\s+/g, '_');
+                metadata[key] = match[2].trim();
+            }
+        });
+        return metadata;
+    };
+
+    // Icon/color config for each infrastructure type
+    const infraConfig = {
+        'ODC': { icon: 'change_history', color: 'text-red-500', bg: 'bg-red-500/20' },
+        'ODP': { icon: 'crop_square', color: 'text-blue-500', bg: 'bg-blue-500/20' },
+        'Tiang': { icon: 'cell_tower', color: 'text-yellow-500', bg: 'bg-yellow-500/20' },
+        'Closure': { icon: 'join', color: 'text-purple-500', bg: 'bg-purple-500/20' },
+        'Kabel': { icon: 'cable', color: 'text-green-500', bg: 'bg-green-500/20' },
+        'Distribusi': { icon: 'hub', color: 'text-orange-500', bg: 'bg-orange-500/20' },
+        'Lainnya': { icon: 'location_on', color: 'text-gray-400', bg: 'bg-gray-500/20' },
+    };
 
     // Parse KML content (text) and extract coordinates
     const parseKmlContent = (kmlText) => {
@@ -49,13 +86,23 @@ const Projects = () => {
                     const [lng, lat, alt] = coordsText.split(',').map(c => parseFloat(c.trim()));
 
                     if (!isNaN(lat) && !isNaN(lng)) {
+                        // Detect infrastructure type from name
+                        const infraType = detectInfrastructureType(name);
+
+                        // Get description element
+                        const descEl = placemark.getElementsByTagName('description')[0];
+                        const description = descEl ? descEl.textContent : '';
+                        const metadata = parseDescription(description);
+
                         points.push({
                             point_id: `P-${String(i + 1).padStart(4, '0')}`,
                             name: name,
                             latitude: lat,
                             longitude: lng,
                             altitude: alt || 0,
-                            status: 'planned'
+                            status: 'planned',
+                            infraType: infraType,
+                            metadata: metadata
                         });
                     }
                 }
@@ -68,6 +115,7 @@ const Projects = () => {
                 if (coordsEl) {
                     const coordsText = coordsEl.textContent.trim();
                     const coordPairs = coordsText.split(/\s+/);
+                    const infraType = detectInfrastructureType(name);
                     coordPairs.forEach((pair, j) => {
                         const [lng, lat, alt] = pair.split(',').map(c => parseFloat(c.trim()));
                         if (!isNaN(lat) && !isNaN(lng)) {
@@ -77,7 +125,9 @@ const Projects = () => {
                                 latitude: lat,
                                 longitude: lng,
                                 altitude: alt || 0,
-                                status: 'planned'
+                                status: 'planned',
+                                infraType: infraType,
+                                metadata: {}
                             });
                         }
                     });
@@ -91,6 +141,7 @@ const Projects = () => {
                 if (coordsEl) {
                     const coordsText = coordsEl.textContent.trim();
                     const coordPairs = coordsText.split(/\s+/);
+                    const infraType = detectInfrastructureType(name);
                     coordPairs.forEach((pair, j) => {
                         const [lng, lat, alt] = pair.split(',').map(c => parseFloat(c.trim()));
                         if (!isNaN(lat) && !isNaN(lng)) {
@@ -100,7 +151,9 @@ const Projects = () => {
                                 latitude: lat,
                                 longitude: lng,
                                 altitude: alt || 0,
-                                status: 'planned'
+                                status: 'planned',
+                                infraType: infraType,
+                                metadata: {}
                             });
                         }
                     });
@@ -450,6 +503,7 @@ const Projects = () => {
                                             <table className="w-full text-sm">
                                                 <thead className="sticky top-0 bg-[#131416]">
                                                     <tr className="text-left text-[#97c4c0] text-xs uppercase tracking-wider">
+                                                        <th className="pb-3 pr-2">Type</th>
                                                         <th className="pb-3 pr-4">ID</th>
                                                         <th className="pb-3 pr-4">Name</th>
                                                         <th className="pb-3 pr-4">Latitude</th>
@@ -457,14 +511,23 @@ const Projects = () => {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {parsedPoints.slice(0, 100).map((point, idx) => (
-                                                        <tr key={idx} className="border-t border-white/5 text-white">
-                                                            <td className="py-2 pr-4 font-mono text-primary">{point.point_id}</td>
-                                                            <td className="py-2 pr-4 truncate max-w-[150px]">{point.name}</td>
-                                                            <td className="py-2 pr-4 font-mono text-xs">{point.latitude.toFixed(6)}</td>
-                                                            <td className="py-2 font-mono text-xs">{point.longitude.toFixed(6)}</td>
-                                                        </tr>
-                                                    ))}
+                                                    {parsedPoints.slice(0, 100).map((point, idx) => {
+                                                        const config = infraConfig[point.infraType] || infraConfig['Lainnya'];
+                                                        return (
+                                                            <tr key={idx} className="border-t border-white/5 text-white">
+                                                                <td className="py-2 pr-2">
+                                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${config.bg} ${config.color}`}>
+                                                                        <span className="material-symbols-outlined text-[12px]">{config.icon}</span>
+                                                                        {point.infraType}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-2 pr-4 font-mono text-primary text-xs">{point.point_id}</td>
+                                                                <td className="py-2 pr-4 truncate max-w-[120px] text-xs">{point.name}</td>
+                                                                <td className="py-2 pr-4 font-mono text-xs">{point.latitude.toFixed(6)}</td>
+                                                                <td className="py-2 font-mono text-xs">{point.longitude.toFixed(6)}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                             {parsedPoints.length > 100 && (
