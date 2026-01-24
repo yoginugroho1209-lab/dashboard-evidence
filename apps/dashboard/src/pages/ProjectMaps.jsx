@@ -361,14 +361,7 @@ const ProjectMaps = () => {
                 </button>
             )}
 
-            {/* STICKY DISTANCE LABEL */}
-            {selectedPoint && distance !== null && (
-                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
-                    <div className="bg-primary text-white px-8 py-4 rounded-2xl text-2xl font-bold shadow-2xl border-2 border-white/30" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-                        {fmtDist(distance)}
-                    </div>
-                </div>
-            )}
+
 
             {/* NAVIGATION INFO PANEL - Fixed Bottom Sheet */}
             {selectedPoint && (
