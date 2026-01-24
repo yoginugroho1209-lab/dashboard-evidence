@@ -333,17 +333,17 @@ const Reports = () => {
         </LabelStyle>
     </Style>
     
-    <!-- Tiang: Red Flag -->
+    <!-- Tiang: Blue Flag/Signpost -->
     <Style id="Tiang">
         <IconStyle>
-            <color>ff0000ff</color>
+            <color>ffffa500</color>
             <scale>1.2</scale>
             <Icon>
-                <href>http://maps.google.com/mapfiles/kml/paddle/red-blank.png</href>
+                <href>http://maps.google.com/mapfiles/kml/shapes/flag.png</href>
             </Icon>
         </IconStyle>
         <LabelStyle>
-            <color>ff0000ff</color>
+            <color>ffffa500</color>
         </LabelStyle>
     </Style>
     
