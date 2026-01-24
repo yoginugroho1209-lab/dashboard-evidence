@@ -121,6 +121,7 @@ const Reports = () => {
     <description>Generated on ${new Date().toLocaleString()}</description>
     
     <!-- Infrastructure Type Styles -->
+    <!-- ODC: Red Triangle -->
     <Style id="ODC">
         <IconStyle>
             <color>ff0000ff</color>
@@ -134,55 +135,87 @@ const Reports = () => {
         </LabelStyle>
     </Style>
     
+    <!-- ODP: Yellow Star -->
     <Style id="ODP">
         <IconStyle>
-            <color>ffff7800</color>
-            <scale>1.1</scale>
+            <color>ff00ffff</color>
+            <scale>1.2</scale>
             <Icon>
-                <href>http://maps.google.com/mapfiles/kml/shapes/square.png</href>
+                <href>http://maps.google.com/mapfiles/kml/paddle/ylw-stars.png</href>
             </Icon>
         </IconStyle>
         <LabelStyle>
-            <color>ffff7800</color>
+            <color>ff00ffff</color>
         </LabelStyle>
     </Style>
     
+    <!-- Tiang: Red Flag -->
     <Style id="Tiang">
         <IconStyle>
-            <color>ff00ffff</color>
-            <scale>1.1</scale>
+            <color>ff0000ff</color>
+            <scale>1.2</scale>
             <Icon>
-                <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+                <href>http://maps.google.com/mapfiles/kml/paddle/red-blank.png</href>
             </Icon>
         </IconStyle>
         <LabelStyle>
-            <color>ff00ffff</color>
+            <color>ff0000ff</color>
         </LabelStyle>
     </Style>
     
-    <Style id="Kabel">
+    <!-- Kabel Existing: Orange #ffaa00 -->
+    <Style id="Kabel_Existing">
         <IconStyle>
-            <color>ff00ff00</color>
+            <color>ff00aaff</color>
             <scale>1.0</scale>
             <Icon>
-                <href>http://maps.google.com/mapfiles/kml/shapes/road_shield3.png</href>
+                <href>http://maps.google.com/mapfiles/kml/paddle/orange-circle.png</href>
             </Icon>
         </IconStyle>
         <LabelStyle>
-            <color>ff00ff00</color>
+            <color>ff00aaff</color>
         </LabelStyle>
     </Style>
     
-    <Style id="Closure">
+    <!-- Kabel Plan: Red -->
+    <Style id="Kabel_Plan">
         <IconStyle>
-            <color>ffff00ff</color>
-            <scale>1.1</scale>
+            <color>ff0000ff</color>
+            <scale>1.0</scale>
             <Icon>
-                <href>http://maps.google.com/mapfiles/kml/shapes/donut.png</href>
+                <href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href>
             </Icon>
         </IconStyle>
         <LabelStyle>
-            <color>ffff00ff</color>
+            <color>ff0000ff</color>
+        </LabelStyle>
+    </Style>
+    
+    <!-- Kabel Default (for backward compatibility) -->
+    <Style id="Kabel">
+        <IconStyle>
+            <color>ff00aaff</color>
+            <scale>1.0</scale>
+            <Icon>
+                <href>http://maps.google.com/mapfiles/kml/paddle/orange-circle.png</href>
+            </Icon>
+        </IconStyle>
+        <LabelStyle>
+            <color>ff00aaff</color>
+        </LabelStyle>
+    </Style>
+    
+    <!-- Closure: Red Forbidden Sign -->
+    <Style id="Closure">
+        <IconStyle>
+            <color>ff0000ff</color>
+            <scale>1.2</scale>
+            <Icon>
+                <href>http://maps.google.com/mapfiles/kml/shapes/forbidden.png</href>
+            </Icon>
+        </IconStyle>
+        <LabelStyle>
+            <color>ff0000ff</color>
         </LabelStyle>
     </Style>
     
@@ -271,10 +304,15 @@ const Reports = () => {
 
             if (!lat || !lng) return;
 
-            // Determine style
+            // Determine style based on infrastructure type and category
             let styleId = hasEvidence ? 'evidencePoint' : 'pendingPoint';
-            if (hasEvidence && infraType && ['ODC', 'ODP', 'Tiang', 'Kabel', 'Closure'].includes(infraType)) {
-                styleId = infraType;
+            if (hasEvidence && infraType) {
+                if (infraType === 'Kabel') {
+                    // Kabel uses different colors for Existing (orange) vs Plan (red)
+                    styleId = category === 'Plan' ? 'Kabel_Plan' : 'Kabel_Existing';
+                } else if (['ODC', 'ODP', 'Tiang', 'Closure'].includes(infraType)) {
+                    styleId = infraType;
+                }
             }
 
             const pointData = {
