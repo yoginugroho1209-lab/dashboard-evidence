@@ -339,18 +339,28 @@ const ProjectMaps = () => {
                 <span className="material-symbols-outlined text-xl">{sidebarOpen ? 'chevron_left' : 'chevron_right'}</span>
             </button>
 
-            {/* GPS & LOCATE BUTTONS */}
-            <div className="fixed top-20 right-4 z-40 flex flex-col gap-2">
-                {userLocation && (
-                    <button onClick={locateMe} className="w-12 h-12 rounded-xl bg-surface-dark/90 backdrop-blur border border-primary/50 text-primary flex items-center justify-center shadow-xl hover:bg-primary hover:text-white transition-all" title="Lokasi Saya">
-                        <span className="material-symbols-outlined text-2xl">my_location</span>
-                    </button>
-                )}
-                <div className={`px-3 py-2 rounded-xl text-xs font-medium backdrop-blur shadow-lg ${userLocation ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
-                    <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${userLocation ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></span>
-                    {userLocation ? 'GPS' : 'Off'}
+            {/* GPS STATUS - Fixed Top Center with Pulse Animation */}
+            <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60]">
+                <div className={`px-4 py-2.5 rounded-full text-sm font-semibold backdrop-blur-xl shadow-2xl flex items-center gap-2 ${userLocation ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-red-500/20 text-red-400 border border-red-500/40'}`} style={{ boxShadow: userLocation ? '0 0 30px rgba(16,185,129,0.3)' : '0 4px 20px rgba(0,0,0,0.3)' }}>
+                    <span className="relative flex h-3 w-3">
+                        {userLocation && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
+                        <span className={`relative inline-flex rounded-full h-3 w-3 ${userLocation ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                    </span>
+                    {userLocation ? 'GPS Aktif' : 'GPS Off'}
                 </div>
             </div>
+
+            {/* MY LOCATION BUTTON - Fixed Bottom Right, above nav panel */}
+            {userLocation && (
+                <button
+                    onClick={locateMe}
+                    className="fixed bottom-32 right-4 z-[60] w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 text-primary flex items-center justify-center shadow-2xl hover:bg-primary hover:text-white hover:scale-110 transition-all duration-300"
+                    title="Lokasi Saya"
+                    style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.3), 0 0 20px rgba(27,152,141,0.2)' }}
+                >
+                    <span className="material-symbols-outlined text-3xl">my_location</span>
+                </button>
+            )}
 
             {/* STICKY DISTANCE LABEL - B. Requirement - Fixed to viewport */}
             {selectedPoint && distance !== null && (
