@@ -14,9 +14,20 @@ const UploadEvidence = () => {
     const [modelStatus, setModelStatus] = useState('idle'); // idle, loading, ready, error
     const [radiusMeters, setRadiusMeters] = useState(5); // Default radius 5 meters
     const [gpsStatus, setGpsStatus] = useState('checking'); // checking, enabled, disabled, error
+    const [category, setCategory] = useState('Existing'); // Existing, Plan
+    const [infrastructureType, setInfrastructureType] = useState('ODC'); // ODC, ODP, Tiang, Kabel, Closure
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
+
+    // Icon/color config for each infrastructure type
+    const infraConfig = {
+        'ODC': { icon: 'change_history', color: 'text-red-500', bg: 'bg-red-500/20' },
+        'ODP': { icon: 'crop_square', color: 'text-blue-500', bg: 'bg-blue-500/20' },
+        'Tiang': { icon: 'cell_tower', color: 'text-yellow-500', bg: 'bg-yellow-500/20' },
+        'Closure': { icon: 'join', color: 'text-purple-500', bg: 'bg-purple-500/20' },
+        'Kabel': { icon: 'cable', color: 'text-green-500', bg: 'bg-green-500/20' },
+    };
 
     // Load AI model on mount
     useEffect(() => {
@@ -265,6 +276,8 @@ const UploadEvidence = () => {
                         point_id: analysisResult.matchedPoint.point?.dbId || null,
                         project_id: analysisResult.matchedPoint.point?.projectId || null,
                         uploaded_by: user?.id || null,
+                        category: category,
+                        infrastructure_type: infrastructureType,
                     }
                 ])
                 .select();
@@ -381,19 +394,69 @@ const UploadEvidence = () => {
                                 <span className="material-symbols-outlined text-[20px]">photo_camera</span>
                                 <span className="text-xs font-bold uppercase tracking-widest">Capture Evidence</span>
                             </div>
-                            {/* Radius Selector */}
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-slate-500">Max Radius:</span>
+                        </div>
+
+                        {/* Category & Infrastructure Type Selectors */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-[#1c1e20] rounded-lg border border-border-dark">
+                            {/* Category */}
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Kategori</label>
+                                <select
+                                    value={category}
+                                    onChange={(e) => setCategory(e.target.value)}
+                                    className="w-full bg-[#131416] border border-border-dark text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-primary"
+                                >
+                                    <option value="Existing">Existing</option>
+                                    <option value="Plan">Plan</option>
+                                </select>
+                            </div>
+
+                            {/* Infrastructure Type */}
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Jenis</label>
+                                <div className="relative">
+                                    <select
+                                        value={infrastructureType}
+                                        onChange={(e) => setInfrastructureType(e.target.value)}
+                                        className="w-full bg-[#131416] border border-border-dark text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-primary appearance-none"
+                                    >
+                                        <option value="ODC">ODC</option>
+                                        <option value="ODP">ODP</option>
+                                        <option value="Tiang">Tiang</option>
+                                        <option value="Kabel">Kabel</option>
+                                        <option value="Closure">Closure</option>
+                                    </select>
+                                    <span className={`absolute right-8 top-1/2 -translate-y-1/2 material-symbols-outlined text-[14px] ${infraConfig[infrastructureType]?.color || 'text-gray-400'}`}>
+                                        {infraConfig[infrastructureType]?.icon || 'location_on'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Max Radius */}
+                            <div>
+                                <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Max Radius</label>
                                 <select
                                     value={radiusMeters}
                                     onChange={(e) => setRadiusMeters(Number(e.target.value))}
-                                    className="bg-[#1c1e20] border border-border-dark text-white text-xs rounded px-2 py-1 focus:outline-none focus:border-primary"
+                                    className="w-full bg-[#131416] border border-border-dark text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-primary"
                                 >
-                                    <option value={5}>5m</option>
-                                    <option value={10}>10m</option>
-                                    <option value={15}>15m</option>
-                                    <option value={20}>20m</option>
+                                    <option value={5}>5 meter</option>
+                                    <option value={10}>10 meter</option>
+                                    <option value={15}>15 meter</option>
+                                    <option value={20}>20 meter</option>
                                 </select>
+                            </div>
+
+                            {/* Selected Type Badge */}
+                            <div className="flex items-end">
+                                <div className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded ${infraConfig[infrastructureType]?.bg || 'bg-gray-500/20'}`}>
+                                    <span className={`material-symbols-outlined text-[18px] ${infraConfig[infrastructureType]?.color || 'text-gray-400'}`}>
+                                        {infraConfig[infrastructureType]?.icon || 'location_on'}
+                                    </span>
+                                    <span className={`text-sm font-bold ${infraConfig[infrastructureType]?.color || 'text-gray-400'}`}>
+                                        {category} - {infrastructureType}
+                                    </span>
+                                </div>
                             </div>
                         </div>
 
