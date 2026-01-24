@@ -28,7 +28,7 @@ const ProjectMaps = () => {
     const userMarkerRef = useRef(null);
     const pointMarkersRef = useRef({});
     const lineRef = useRef(null);
-    const distanceLabelRef = useRef(null);
+    const arrowsRef = useRef([]);
     const selectedPointRef = useRef(null);
 
     useEffect(() => {
@@ -64,7 +64,11 @@ const ProjectMaps = () => {
                 setUserLocation(loc);
                 if (pos.coords.heading && !isNaN(pos.coords.heading)) setUserHeading(pos.coords.heading);
                 updateUserMarker(loc, pos.coords.heading || userHeading);
-                if (selectedPointRef.current) setDistance(calcDist(loc.lat, loc.lng, selectedPointRef.current.latitude, selectedPointRef.current.longitude));
+                if (selectedPointRef.current) {
+                    const d = calcDist(loc.lat, loc.lng, selectedPointRef.current.latitude, selectedPointRef.current.longitude);
+                    setDistance(d);
+                    updateRouteLine(loc, selectedPointRef.current);
+                }
             },
             () => { },
             { enableHighAccuracy: true, maximumAge: 500, timeout: 10000 }
@@ -83,22 +87,65 @@ const ProjectMaps = () => {
         const L = window.L;
         const icon = L.divIcon({
             className: 'user-marker',
-            html: `<div style="width:60px;height:60px;position:relative;">
+            html: `<div style="width:60px;height:60px;position:relative;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
                 <div style="position:absolute;top:0;left:50%;transform:translateX(-50%) rotate(${heading || 0}deg);transform-origin:center 30px;transition:transform 0.3s;">
                     <div style="width:0;height:0;border-left:14px solid transparent;border-right:14px solid transparent;border-bottom:24px solid #1B988D;"></div>
                 </div>
-                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;background:#1B988D;border:5px solid white;border-radius:50%;box-shadow:0 4px 15px rgba(0,0,0,0.5);"></div>
+                <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;background:#1B988D;border:5px solid white;border-radius:50%;box-shadow:0 0 20px rgba(27,152,141,0.6);"></div>
             </div>`,
             iconSize: [60, 60], iconAnchor: [30, 30]
         });
         if (userMarkerRef.current) { userMarkerRef.current.setLatLng([loc.lat, loc.lng]); userMarkerRef.current.setIcon(icon); }
         else { userMarkerRef.current = L.marker([loc.lat, loc.lng], { icon, zIndexOffset: 2000 }).addTo(mapInstanceRef.current); }
-        if (selectedPointRef.current && lineRef.current) {
-            lineRef.current.setLatLngs([[loc.lat, loc.lng], [selectedPointRef.current.latitude, selectedPointRef.current.longitude]]);
+    };
+
+    // Create directional arrows along line
+    const updateRouteLine = (userLoc, target) => {
+        if (!mapInstanceRef.current || !window.L) return;
+        const L = window.L;
+        const map = mapInstanceRef.current;
+
+        // Clear existing
+        if (lineRef.current) map.removeLayer(lineRef.current);
+        arrowsRef.current.forEach(a => map.removeLayer(a));
+        arrowsRef.current = [];
+
+        // Main line with glow effect
+        const glowLine = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
+            color: '#1B988D', weight: 12, opacity: 0.3, lineCap: 'round'
+        }).addTo(map);
+
+        lineRef.current = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
+            color: '#1B988D', weight: 5, opacity: 1, lineCap: 'round', dashArray: '1, 15'
+        }).addTo(map);
+        arrowsRef.current.push(glowLine);
+
+        // Calculate bearing for arrows
+        const bearing = calcBearing(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
+        const dist = calcDist(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
+        const numArrows = Math.min(Math.max(Math.floor(dist / 50), 2), 10);
+
+        // Add directional arrows along the path
+        for (let i = 1; i <= numArrows; i++) {
+            const fraction = i / (numArrows + 1);
+            const lat = userLoc.lat + (target.latitude - userLoc.lat) * fraction;
+            const lng = userLoc.lng + (target.longitude - userLoc.lng) * fraction;
+
+            const arrowIcon = L.divIcon({
+                className: 'arrow-marker',
+                html: `<div style="transform:rotate(${bearing}deg);width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#1B988D" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
+                        <path d="M12 2L4 14h6v8h4v-8h6L12 2z"/>
+                    </svg>
+                </div>`,
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            });
+            const arrow = L.marker([lat, lng], { icon: arrowIcon, zIndexOffset: 500, interactive: false }).addTo(map);
+            arrowsRef.current.push(arrow);
         }
     };
 
-    // Locate me - zoom to user
     const locateMe = () => {
         if (userLocation && mapInstanceRef.current) {
             mapInstanceRef.current.setView([userLocation.lat, userLocation.lng], 20);
@@ -128,7 +175,8 @@ const ProjectMaps = () => {
         Object.values(pointMarkersRef.current).forEach(m => mapInstanceRef.current?.removeLayer(m));
         pointMarkersRef.current = {};
         if (lineRef.current) { mapInstanceRef.current?.removeLayer(lineRef.current); lineRef.current = null; }
-        if (distanceLabelRef.current) { mapInstanceRef.current?.removeLayer(distanceLabelRef.current); distanceLabelRef.current = null; }
+        arrowsRef.current.forEach(a => mapInstanceRef.current?.removeLayer(a));
+        arrowsRef.current = [];
     };
 
     const addPoints = (pts, evSet) => {
@@ -153,12 +201,13 @@ const ProjectMaps = () => {
         const col = hasEv ? '#22C55E' : '#FBBF24';
         const bg = sel ? '#1B988D' : col;
         const sz = sel ? 44 : 32;
+        const glow = sel ? 'box-shadow:0 0 20px rgba(27,152,141,0.8);' : '';
         return L.marker([p.latitude, p.longitude], {
             icon: L.divIcon({
                 className: 'pt',
                 html: `<div style="position:relative;cursor:pointer;">
-                    <div style="width:${sz}px;height:${sz}px;background:${bg};border:${sel ? 5 : 4}px solid white;border-radius:50%;box-shadow:0 4px 15px rgba(0,0,0,0.5);${sel ? 'animation:pulse 1.5s infinite;' : ''}"></div>
-                    <div style="position:absolute;top:${sz + 6}px;left:50%;transform:translateX(-50%);background:${sel ? '#1B988D' : 'rgba(0,0,0,0.9)'};color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:bold;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 6px rgba(0,0,0,0.4);">${name}</div>
+                    <div style="width:${sz}px;height:${sz}px;background:${bg};border:${sel ? 5 : 4}px solid white;border-radius:50%;${glow}${sel ? 'animation:pulse 1.5s infinite;' : ''}"></div>
+                    <div style="position:absolute;top:${sz + 6}px;left:50%;transform:translateX(-50%);background:${sel ? '#1B988D' : 'rgba(0,0,0,0.9)'};color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:bold;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 8px rgba(0,0,0,0.4);">${name}</div>
                 </div>`,
                 iconSize: [sz, sz + 35], iconAnchor: [sz / 2, sz / 2]
             }),
@@ -183,18 +232,11 @@ const ProjectMaps = () => {
         pointMarkersRef.current[p.id] = nm;
         setSelectedPoint(p); selectedPointRef.current = p;
 
-        if (lineRef.current) map.removeLayer(lineRef.current);
-        if (distanceLabelRef.current) map.removeLayer(distanceLabelRef.current);
-
         if (userLocation) {
             const d = calcDist(userLocation.lat, userLocation.lng, p.latitude, p.longitude);
             setDistance(d);
-            const txt = d < 1000 ? `${Math.round(d)} m` : `${(d / 1000).toFixed(1)} km`;
-            lineRef.current = L.polyline([[userLocation.lat, userLocation.lng], [p.latitude, p.longitude]], { color: '#1B988D', weight: 5, dashArray: '12, 8', opacity: 0.9 }).addTo(map);
-            distanceLabelRef.current = L.marker([(userLocation.lat + p.latitude) / 2, (userLocation.lng + p.longitude) / 2], {
-                icon: L.divIcon({ className: 'dist', html: `<div style="background:#1B988D;color:white;padding:8px 14px;border-radius:20px;font-size:16px;font-weight:bold;box-shadow:0 3px 10px rgba(0,0,0,0.4);border:2px solid white;">${txt}</div>`, iconSize: [100, 40], iconAnchor: [50, 20] }),
-                zIndexOffset: 1500
-            }).addTo(map);
+            updateRouteLine(userLocation, p);
+
             let z = 22;
             if (d < 10) z = 22; else if (d < 30) z = 21; else if (d < 60) z = 20; else if (d < 150) z = 19; else if (d < 400) z = 18; else if (d < 1000) z = 17; else z = 16;
             map.setView([(userLocation.lat + p.latitude) / 2, (userLocation.lng + p.longitude) / 2], z);
@@ -223,146 +265,173 @@ const ProjectMaps = () => {
 
     const closeNav = () => {
         setSelectedPoint(null); selectedPointRef.current = null; setDistance(null); setIsNavigating(false);
-        if (lineRef.current) { mapInstanceRef.current?.removeLayer(lineRef.current); lineRef.current = null; }
-        if (distanceLabelRef.current) { mapInstanceRef.current?.removeLayer(distanceLabelRef.current); distanceLabelRef.current = null; }
-        if (window.L && mapInstanceRef.current) {
-            Object.keys(pointMarkersRef.current).forEach(id => {
-                const pt = points.find(x => x.id === id);
-                if (pt) {
-                    const m = mkMarker(window.L, pt, pt.point_id || pt.name || 'Titik', false, pointsWithEvidence.has(pt.id));
-                    mapInstanceRef.current.removeLayer(pointMarkersRef.current[id]);
-                    m.addTo(mapInstanceRef.current).on('click', () => clickPoint(pt));
-                    pointMarkersRef.current[id] = m;
-                }
-            });
-        }
+        clearMarkers();
+        if (points.length > 0) addPoints(points, pointsWithEvidence);
     };
 
     return (
-        <main className="flex-1 flex h-full overflow-hidden bg-background-dark relative">
-            <style>{`@keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }`}</style>
+        <main className="flex-1 h-full overflow-hidden bg-background-dark relative">
+            <style>{`
+                @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }
+                @keyframes slideIn { from{transform:translateX(-100%);opacity:0;} to{transform:translateX(0);opacity:1;} }
+                @keyframes fadeIn { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
+            `}</style>
 
-            {/* SIDEBAR - Drawer style */}
-            <aside className={`${sidebarOpen ? 'w-72' : 'w-0'} flex-shrink-0 bg-surface-dark border-r border-border-dark transition-all duration-300 overflow-hidden z-20 flex flex-col`}>
-                <div className="p-4 border-b border-border-dark">
-                    <h2 className="text-white font-bold text-lg mb-3">Project Maps</h2>
-                    <select value={selectedRegion} onChange={(e) => { setSelectedRegion(e.target.value); setSelectedProjectId(''); }} className="w-full bg-input-bg border border-border-dark text-white text-sm rounded h-10 px-3 mb-2">
-                        <option value="">Semua Region</option>
-                        {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                    <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full bg-input-bg border border-border-dark text-white text-sm rounded h-10 px-3">
-                        <option value="">Pilih Project</option>
-                        {filteredProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                </div>
-                {points.length > 0 && (
-                    <div className="p-3 border-b border-border-dark flex items-center gap-2 text-xs text-slate-400">
-                        <span className="bg-primary/20 text-primary px-2 py-1 rounded-full font-bold">{points.length} titik</span>
-                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-green-500"></span>Ada foto</span>
-                        <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-yellow-400"></span>Belum</span>
+            {/* FULL SCREEN MAP */}
+            <div ref={mapRef} className="absolute inset-0 z-0"></div>
+
+            {/* FLOATING OVERLAY SIDEBAR - A. Requirements */}
+            <aside
+                className={`fixed top-16 left-0 h-[calc(100vh-4rem)] z-40 transition-all duration-500 ease-in-out ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+                style={{ width: '320px' }}
+            >
+                <div className="h-full bg-surface-dark/90 backdrop-blur-xl border-r border-border-dark shadow-2xl flex flex-col">
+                    {/* Header */}
+                    <div className="p-4 border-b border-border-dark/50">
+                        <h2 className="text-white font-bold text-xl mb-4 flex items-center gap-2">
+                            <span className="material-symbols-outlined text-primary">explore</span>
+                            Project Maps
+                        </h2>
+                        <select value={selectedRegion} onChange={(e) => { setSelectedRegion(e.target.value); setSelectedProjectId(''); }} className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-lg h-11 px-4 mb-3 focus:border-primary focus:outline-none transition">
+                            <option value="">Semua Region</option>
+                            {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-lg h-11 px-4 focus:border-primary focus:outline-none transition">
+                            <option value="">Pilih Project</option>
+                            {filteredProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                        </select>
                     </div>
-                )}
-                <div className="flex-1 overflow-y-auto">
-                    {points.map((p, i) => (
-                        <button key={p.id} onClick={() => clickPoint(p)} className={`w-full text-left px-4 py-3 border-b border-border-dark hover:bg-white/5 transition ${selectedPoint?.id === p.id ? 'bg-primary/10 border-l-2 border-l-primary' : ''}`}>
-                            <div className="flex items-center justify-between">
-                                <span className="text-white text-sm font-medium truncate">{p.point_id || p.name || `Titik ${i + 1}`}</span>
-                                <span className={`w-3 h-3 rounded-full ${pointsWithEvidence.has(p.id) ? 'bg-green-500' : 'bg-yellow-400'}`}></span>
+
+                    {/* Stats */}
+                    {points.length > 0 && (
+                        <div className="px-4 py-3 border-b border-border-dark/50 flex items-center gap-3 text-sm">
+                            <span className="bg-primary/20 text-primary px-3 py-1 rounded-full font-bold">{points.length} Titik</span>
+                            <span className="flex items-center gap-1.5 text-slate-400"><span className="w-3 h-3 rounded-full bg-green-500"></span>Ada foto</span>
+                            <span className="flex items-center gap-1.5 text-slate-400"><span className="w-3 h-3 rounded-full bg-yellow-400"></span>Belum</span>
+                        </div>
+                    )}
+
+                    {/* Points List */}
+                    <div className="flex-1 overflow-y-auto">
+                        {points.map((p, i) => (
+                            <button key={p.id} onClick={() => clickPoint(p)} className={`w-full text-left px-4 py-3.5 border-b border-white/5 hover:bg-white/5 transition-all ${selectedPoint?.id === p.id ? 'bg-primary/15 border-l-4 border-l-primary' : ''}`}>
+                                <div className="flex items-center justify-between">
+                                    <span className="text-white font-medium truncate">{p.point_id || p.name || `Titik ${i + 1}`}</span>
+                                    <span className={`w-3 h-3 rounded-full flex-shrink-0 ${pointsWithEvidence.has(p.id) ? 'bg-green-500' : 'bg-yellow-400'}`}></span>
+                                </div>
+                            </button>
+                        ))}
+                        {points.length === 0 && selectedProjectId && (
+                            <div className="p-8 text-center text-slate-500">
+                                <span className="material-symbols-outlined text-4xl mb-2 block opacity-50">location_off</span>
+                                Tidak ada titik
                             </div>
-                        </button>
-                    ))}
+                        )}
+                    </div>
                 </div>
             </aside>
 
-            {/* MAP AREA */}
-            <div className="flex-1 relative">
-                {/* Toggle Sidebar Button - ALWAYS VISIBLE, FIXED */}
-                <button
-                    onClick={() => setSidebarOpen(!sidebarOpen)}
-                    className="fixed top-20 left-4 z-50 h-12 px-4 rounded-full bg-primary text-white flex items-center gap-2 shadow-xl hover:bg-primary/90 transition-all"
-                    style={{ marginLeft: sidebarOpen ? '288px' : '0' }}
-                >
-                    <span className="material-symbols-outlined text-2xl">{sidebarOpen ? 'chevron_left' : 'menu'}</span>
-                    <span className="text-sm font-medium">{sidebarOpen ? 'Tutup' : 'Menu'}</span>
-                </button>
+            {/* TOGGLE SIDEBAR BUTTON - Always visible chevron */}
+            <button
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className={`fixed top-1/2 -translate-y-1/2 z-50 w-8 h-16 bg-primary text-white rounded-r-lg shadow-xl flex items-center justify-center transition-all duration-500 hover:w-10 ${sidebarOpen ? 'left-[320px]' : 'left-0'}`}
+            >
+                <span className="material-symbols-outlined text-xl">{sidebarOpen ? 'chevron_left' : 'chevron_right'}</span>
+            </button>
 
-                {/* Locate Me Button - BIGGER, FIXED */}
+            {/* GPS & LOCATE BUTTONS */}
+            <div className="fixed top-20 right-4 z-40 flex flex-col gap-2">
                 {userLocation && (
-                    <button
-                        onClick={locateMe}
-                        className="fixed top-20 right-4 z-50 h-12 px-4 rounded-full bg-surface-dark border border-primary text-primary flex items-center gap-2 shadow-xl hover:bg-primary/10 transition-all"
-                        title="Lokasi Saya"
-                    >
+                    <button onClick={locateMe} className="w-12 h-12 rounded-xl bg-surface-dark/90 backdrop-blur border border-primary/50 text-primary flex items-center justify-center shadow-xl hover:bg-primary hover:text-white transition-all" title="Lokasi Saya">
                         <span className="material-symbols-outlined text-2xl">my_location</span>
-                        <span className="text-sm font-medium">Lokasi</span>
                     </button>
                 )}
-
-                {/* GPS Status */}
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                    {userLocation ? (
-                        <span className="text-emerald-400 text-xs bg-surface-dark/90 backdrop-blur px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-emerald-500/30">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>GPS Active
-                        </span>
-                    ) : (
-                        <span className="text-red-400 text-xs bg-surface-dark/90 backdrop-blur px-3 py-1.5 rounded-full border border-red-500/30">GPS Off</span>
-                    )}
+                <div className={`px-3 py-2 rounded-xl text-xs font-medium backdrop-blur shadow-lg ${userLocation ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'}`}>
+                    <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${userLocation ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></span>
+                    {userLocation ? 'GPS' : 'Off'}
                 </div>
+            </div>
 
-                {/* MAP */}
-                <div ref={mapRef} className="absolute inset-0 bg-slate-900"></div>
+            {/* STICKY DISTANCE LABEL - B. Requirement - Fixed to viewport */}
+            {selectedPoint && distance !== null && (
+                <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
+                    <div className="bg-primary text-white px-6 py-3 rounded-2xl text-xl font-bold shadow-2xl border-2 border-white/30" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                        {fmtDist(distance)}
+                    </div>
+                </div>
+            )}
 
-                {/* Navigation Panel - Bottom Center when point selected */}
-                {selectedPoint && (
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 w-[90%] max-w-md">
-                        <div className="bg-surface-dark/95 backdrop-blur-lg rounded-2xl p-4 border border-border-dark shadow-2xl">
-                            <div className="flex items-center gap-3 mb-3">
-                                {isNavigating && bearing !== null && (
-                                    <div className="w-14 h-14 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0">
-                                        <span className="material-symbols-outlined text-2xl text-primary" style={{ transform: `rotate(${arrowRot}deg)`, transition: 'transform 0.2s' }}>navigation</span>
-                                    </div>
-                                )}
-                                <div className="flex-1 min-w-0">
-                                    <h3 className="text-white font-bold truncate">{selectedPoint.point_id || selectedPoint.name}</h3>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${pointsWithEvidence.has(selectedPoint.id) ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
-                                        {pointsWithEvidence.has(selectedPoint.id) ? '✓ Ada Evidence' : '○ Belum ada Evidence'}
-                                    </span>
+            {/* NAVIGATION INFO PANEL - C. Requirements - Fixed Bottom Sheet */}
+            {selectedPoint && (
+                <div className="fixed bottom-0 left-0 right-0 z-50 p-4" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                    <div className="max-w-lg mx-auto bg-surface-dark/95 backdrop-blur-xl rounded-2xl p-5 border border-border-dark shadow-2xl">
+                        {/* Header Row */}
+                        <div className="flex items-center gap-4 mb-4">
+                            {/* Compass */}
+                            {isNavigating && bearing !== null && (
+                                <div className="w-16 h-16 rounded-full bg-primary/20 border-2 border-primary flex items-center justify-center flex-shrink-0 shadow-lg" style={{ boxShadow: '0 0 20px rgba(27,152,141,0.4)' }}>
+                                    <span className="material-symbols-outlined text-3xl text-primary" style={{ transform: `rotate(${arrowRot}deg)`, transition: 'transform 0.2s' }}>navigation</span>
                                 </div>
-                                <div className="text-right flex-shrink-0">
-                                    <p className="text-3xl font-bold text-primary leading-none">{fmtDist(distance)}</p>
-                                    {distance !== null && distance < 15 && <p className="text-emerald-400 text-xs font-bold">🎉 Sampai!</p>}
+                            )}
+
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-white font-bold text-lg truncate mb-1">{selectedPoint.point_id || selectedPoint.name}</h3>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${pointsWithEvidence.has(selectedPoint.id) ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                                        {pointsWithEvidence.has(selectedPoint.id) ? '✓ Ada Evidence' : '○ Belum ada'}
+                                    </span>
+                                    {distance !== null && distance < 15 && (
+                                        <span className="text-emerald-400 text-xs font-bold animate-pulse">🎉 Sampai!</span>
+                                    )}
                                 </div>
                             </div>
-                            <div className="flex gap-2">
-                                {!isNavigating ? (
-                                    <button onClick={() => setIsNavigating(true)} className="flex-1 py-2.5 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 text-sm">
-                                        <span className="material-symbols-outlined">navigation</span>Mulai Navigasi
-                                    </button>
-                                ) : (
-                                    <>
-                                        <button onClick={() => setIsNavigating(false)} className="px-4 py-2.5 rounded-xl bg-slate-700 text-white text-sm">Stop</button>
-                                        <a href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPoint.latitude},${selectedPoint.longitude}`} target="_blank" rel="noopener noreferrer" className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white flex items-center justify-center gap-2 text-sm">
-                                            <span className="material-symbols-outlined text-lg">open_in_new</span>Google Maps
-                                        </a>
-                                    </>
-                                )}
-                                <button onClick={closeNav} className="px-3 py-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white">
-                                    <span className="material-symbols-outlined">close</span>
-                                </button>
+
+                            {/* Distance */}
+                            <div className="text-right flex-shrink-0">
+                                <p className="text-4xl font-bold text-primary leading-none" style={{ textShadow: '0 0 20px rgba(27,152,141,0.3)' }}>{fmtDist(distance)}</p>
                             </div>
                         </div>
-                    </div>
-                )}
 
-                {/* Empty State */}
-                {!selectedProjectId && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-surface-dark/80 z-10">
-                        <span className="material-symbols-outlined text-6xl mb-3 opacity-30">explore</span>
-                        <p className="text-lg font-semibold text-white">Project Maps</p>
-                        <p className="text-sm">Pilih project di sidebar untuk melihat titik</p>
+                        {/* Action Buttons */}
+                        <div className="flex gap-3">
+                            {!isNavigating ? (
+                                <button onClick={() => setIsNavigating(true)} className="flex-1 py-3.5 rounded-xl bg-primary text-white font-semibold flex items-center justify-center gap-2 shadow-lg hover:bg-primary/90 transition-all text-base">
+                                    <span className="material-symbols-outlined">navigation</span>
+                                    Mulai Navigasi
+                                </button>
+                            ) : (
+                                <>
+                                    <button onClick={() => setIsNavigating(false)} className="px-5 py-3.5 rounded-xl bg-slate-700 text-white font-medium hover:bg-slate-600 transition">
+                                        Stop
+                                    </button>
+                                    <a
+                                        href={`https://www.google.com/maps/dir/?api=1&destination=${selectedPoint.latitude},${selectedPoint.longitude}&travelmode=walking`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 py-3.5 rounded-xl bg-blue-600 text-white font-semibold flex items-center justify-center gap-2 shadow-lg hover:bg-blue-500 transition-all"
+                                    >
+                                        <span className="material-symbols-outlined">open_in_new</span>
+                                        Buka Google Maps
+                                    </a>
+                                </>
+                            )}
+                            <button onClick={closeNav} className="px-4 py-3.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
+
+            {/* Empty State */}
+            {!selectedProjectId && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-surface-dark/80 backdrop-blur-sm z-10">
+                    <span className="material-symbols-outlined text-8xl mb-4 opacity-20">explore</span>
+                    <p className="text-2xl font-semibold text-white mb-2">Project Maps</p>
+                    <p className="text-base">Pilih project dari sidebar untuk melihat titik lokasi</p>
+                </div>
+            )}
         </main>
     );
 };
