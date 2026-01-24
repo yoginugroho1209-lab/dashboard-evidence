@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { extractExifData, findNearestPoint as findNearest } from '../lib/exifService'
 import { detectPoles, drawDetections, loadModel } from '../lib/objectDetection'
-import { usePullToRefresh } from '../lib/usePullToRefresh'
 
 const UploadEvidence = () => {
     const [selectedFile, setSelectedFile] = useState(null);
@@ -18,13 +17,6 @@ const UploadEvidence = () => {
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
-
-    // Pull to refresh - Google Chrome style
-    const handleRefresh = useCallback(async () => {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        window.location.reload();
-    }, []);
-    const { state: refreshState, visualOffset, rotation, isVisible, isLoading, isThreshold, opacity } = usePullToRefresh(handleRefresh);
 
     // Load AI model on mount
     useEffect(() => {
@@ -304,59 +296,6 @@ const UploadEvidence = () => {
         <main className="flex-1 flex flex-col h-full overflow-hidden bg-background-dark relative">
             {/* Background Grid Pattern */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }}></div>
-
-            {/* Pull to Refresh - Google Chrome Material Design Style */}
-            {/* Uses viewport-relative positioning to stay centered on phone screen even when zoomed */}
-            <div
-                className="pointer-events-none"
-                style={{
-                    position: 'fixed',
-                    top: '-60px',
-                    left: '50vw',
-                    transform: `translateX(-50%) translateY(${isVisible ? visualOffset + 60 : 0}px) scale(${refreshState === 'complete' ? 0 : 1})`,
-                    transition: refreshState === 'pulling' || refreshState === 'threshold'
-                        ? 'none'
-                        : 'transform 0.3s cubic-bezier(0, 0, 0.31, 1)',
-                    opacity: isVisible ? opacity : 0,
-                    zIndex: 99999
-                }}
-            >
-                <div
-                    className="rounded-full bg-white flex items-center justify-center"
-                    style={{
-                        width: '50px',
-                        height: '50px',
-                        boxShadow: '0 3px 12px rgba(0,0,0,0.2), 0 2px 4px rgba(0,0,0,0.1)'
-                    }}
-                >
-                    {/* SVG Spinner - Google Blue */}
-                    <svg
-                        width="30"
-                        height="30"
-                        viewBox="0 0 24 24"
-                        style={{
-                            transform: isLoading ? 'none' : `rotate(${rotation}deg)`,
-                            transition: isLoading ? 'none' : 'transform 0.02s linear'
-                        }}
-                        className={isLoading ? 'animate-spin' : ''}
-                    >
-                        <circle
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            fill="none"
-                            stroke={isThreshold || isLoading ? '#4285F4' : '#9CA3AF'}
-                            strokeWidth="2.5"
-                            strokeDasharray={isLoading ? '50 100' : `${Math.min((visualOffset / 35) * 63, 63)} 63`}
-                            strokeLinecap="round"
-                            style={{
-                                transformOrigin: 'center',
-                                transition: 'stroke 0.15s ease'
-                            }}
-                        />
-                    </svg>
-                </div>
-            </div>
 
             {/* GPS Warning Overlay */}
             {(gpsStatus === 'disabled' || gpsStatus === 'error') && (
