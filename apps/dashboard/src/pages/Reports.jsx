@@ -120,6 +120,72 @@ const Reports = () => {
     <name>${projectName} - Evidence Report</name>
     <description>Generated on ${new Date().toLocaleString()}</description>
     
+    <!-- Infrastructure Type Styles -->
+    <Style id="ODC">
+        <IconStyle>
+            <color>ff0000ff</color>
+            <scale>1.2</scale>
+            <Icon>
+                <href>http://maps.google.com/mapfiles/kml/shapes/triangle.png</href>
+            </Icon>
+        </IconStyle>
+        <LabelStyle>
+            <color>ff0000ff</color>
+        </LabelStyle>
+    </Style>
+    
+    <Style id="ODP">
+        <IconStyle>
+            <color>ffff7800</color>
+            <scale>1.1</scale>
+            <Icon>
+                <href>http://maps.google.com/mapfiles/kml/shapes/square.png</href>
+            </Icon>
+        </IconStyle>
+        <LabelStyle>
+            <color>ffff7800</color>
+        </LabelStyle>
+    </Style>
+    
+    <Style id="Tiang">
+        <IconStyle>
+            <color>ff00ffff</color>
+            <scale>1.1</scale>
+            <Icon>
+                <href>http://maps.google.com/mapfiles/kml/pushpin/ylw-pushpin.png</href>
+            </Icon>
+        </IconStyle>
+        <LabelStyle>
+            <color>ff00ffff</color>
+        </LabelStyle>
+    </Style>
+    
+    <Style id="Kabel">
+        <IconStyle>
+            <color>ff00ff00</color>
+            <scale>1.0</scale>
+            <Icon>
+                <href>http://maps.google.com/mapfiles/kml/shapes/road_shield3.png</href>
+            </Icon>
+        </IconStyle>
+        <LabelStyle>
+            <color>ff00ff00</color>
+        </LabelStyle>
+    </Style>
+    
+    <Style id="Closure">
+        <IconStyle>
+            <color>ffff00ff</color>
+            <scale>1.1</scale>
+            <Icon>
+                <href>http://maps.google.com/mapfiles/kml/shapes/donut.png</href>
+            </Icon>
+        </IconStyle>
+        <LabelStyle>
+            <color>ffff00ff</color>
+        </LabelStyle>
+    </Style>
+    
     <Style id="evidencePoint">
         <IconStyle>
             <color>ff00ff00</color>
@@ -157,11 +223,15 @@ const Reports = () => {
             const photoUrl = item.photo_url || item.evidence?.[0]?.photo_url || '';
             const name = item.point_id || item.name || `Point ${idx + 1}`;
 
+            // Get infrastructure type from evidence
+            const evidenceItem = item.evidence?.[0] || item;
+            const infraType = evidenceItem.infrastructure_type || item.infrastructure_type || '';
+            const category = evidenceItem.category || item.category || '';
+
             // Determine coordinates based on useExifCoords setting
             let lat, lng, coordSource;
             if (useExifCoords && hasEvidence) {
                 // Use EXIF coordinates from evidence if available
-                const evidenceItem = item.evidence?.[0] || item;
                 const exifLat = evidenceItem.exif_latitude;
                 const exifLng = evidenceItem.exif_longitude;
                 if (exifLat && exifLng) {
@@ -179,17 +249,25 @@ const Reports = () => {
                 coordSource = item.latitude ? 'KML Point' : 'EXIF Photo';
             }
 
+            // Determine style based on infrastructure type (if has evidence with type) or default
+            let styleId = hasEvidence ? 'evidencePoint' : 'pendingPoint';
+            if (hasEvidence && infraType && ['ODC', 'ODP', 'Tiang', 'Kabel', 'Closure'].includes(infraType)) {
+                styleId = infraType;
+            }
+
             if (lat && lng) {
                 kmlContent += `
     <Placemark>
         <name>${name}</name>
         <description><![CDATA[
             <b>Status:</b> ${hasEvidence ? 'Evidence Captured' : 'Pending'}<br/>
+            ${category ? `<b>Kategori:</b> ${category}<br/>` : ''}
+            ${infraType ? `<b>Jenis:</b> ${infraType}<br/>` : ''}
             <b>Coordinates:</b> ${lat}, ${lng}<br/>
             <b>Source:</b> ${coordSource}<br/>
             ${photoUrl ? `<img src="${photoUrl}" width="200"/>` : 'No photo available'}
         ]]></description>
-        <styleUrl>#${hasEvidence ? 'evidencePoint' : 'pendingPoint'}</styleUrl>
+        <styleUrl>#${styleId}</styleUrl>
         <Point>
             <coordinates>${lng},${lat},0</coordinates>
         </Point>
@@ -204,20 +282,30 @@ const Reports = () => {
                 const lng = item.exif_longitude;
                 const photoUrl = item.photo_url || '';
                 const timestamp = item.exif_timestamp ? new Date(item.exif_timestamp).toLocaleString() : 'Unknown';
+                const infraType = item.infrastructure_type || '';
+                const category = item.category || '';
+
+                // Determine style based on infrastructure type
+                let styleId = 'exifPoint';
+                if (infraType && ['ODC', 'ODP', 'Tiang', 'Kabel', 'Closure'].includes(infraType)) {
+                    styleId = infraType;
+                }
 
                 if (lat && lng) {
                     kmlContent += `
     <Placemark>
-        <name>📷 Photo Evidence ${idx + 1}</name>
+        <name>${infraType || '📷'} - Photo ${idx + 1}</name>
         <description><![CDATA[
             <b>Type:</b> Standalone Photo Evidence<br/>
+            ${category ? `<b>Kategori:</b> ${category}<br/>` : ''}
+            ${infraType ? `<b>Jenis:</b> ${infraType}<br/>` : ''}
             <b>Coordinates:</b> ${lat}, ${lng}<br/>
             <b>Source:</b> EXIF Photo<br/>
             <b>Captured:</b> ${timestamp}<br/>
             <b>Device:</b> ${item.exif_device || 'Unknown'}<br/>
             ${photoUrl ? `<img src="${photoUrl}" width="200"/>` : ''}
         ]]></description>
-        <styleUrl>#exifPoint</styleUrl>
+        <styleUrl>#${styleId}</styleUrl>
         <Point>
             <coordinates>${lng},${lat},0</coordinates>
         </Point>
