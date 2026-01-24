@@ -1,85 +1,123 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
-export const usePullToRefresh = (onRefresh, threshold = 60) => {
-    const [pullDistance, setPullDistance] = useState(0);
-    const [isRefreshing, setIsRefreshing] = useState(false);
+/**
+ * Google Chrome-style Pull-to-Refresh Hook
+ * 
+ * Features:
+ * - Damping factor 0.4 for resistance
+ * - Threshold 70px
+ * - 60fps transform-based animation
+ * - Proper cancel behavior
+ */
+export const usePullToRefresh = (onRefresh) => {
+    const [state, setState] = useState('idle'); // idle, pulling, threshold, loading, complete
+    const [visualOffset, setVisualOffset] = useState(0);
+    const [rotation, setRotation] = useState(0);
+
     const startY = useRef(0);
     const currentY = useRef(0);
     const isActive = useRef(false);
-    const wasAtTop = useRef(false);
+
+    const THRESHOLD = 70;
+    const DAMPING = 0.4;
+    const MAX_PULL = 150;
+
+    const triggerHaptic = useCallback(() => {
+        if (navigator.vibrate) {
+            navigator.vibrate(10);
+        }
+    }, []);
 
     useEffect(() => {
         let animationFrame;
 
-        const updatePull = () => {
-            if (isActive.current && wasAtTop.current && !isRefreshing) {
-                const distance = currentY.current - startY.current;
-                if (distance > 0) {
-                    const easedDistance = Math.pow(distance, 0.8);
-                    setPullDistance(easedDistance);
-                } else {
-                    setPullDistance(0);
+        const updateVisuals = () => {
+            if (isActive.current && state !== 'loading') {
+                const rawDistance = currentY.current - startY.current;
+
+                if (rawDistance > 0) {
+                    // Apply damping factor for resistance effect
+                    const dampedDistance = rawDistance * DAMPING;
+                    const clampedDistance = Math.min(dampedDistance, MAX_PULL * DAMPING);
+
+                    setVisualOffset(clampedDistance);
+                    // Rotation follows pull distance (360 degrees over threshold)
+                    setRotation((clampedDistance / (THRESHOLD * DAMPING)) * 360);
+
+                    // Check if reached threshold
+                    if (dampedDistance >= THRESHOLD * DAMPING && state === 'pulling') {
+                        setState('threshold');
+                        triggerHaptic();
+                    } else if (dampedDistance < THRESHOLD * DAMPING && state === 'threshold') {
+                        setState('pulling');
+                    }
                 }
             }
-            animationFrame = requestAnimationFrame(updatePull);
+            animationFrame = requestAnimationFrame(updateVisuals);
         };
 
         const handleTouchStart = (e) => {
-            startY.current = e.touches[0].clientY;
-            currentY.current = e.touches[0].clientY;
-            // Record if we started at the very top
-            wasAtTop.current = window.scrollY <= 0;
-            isActive.current = true;
+            if (window.scrollY === 0 && state === 'idle') {
+                startY.current = e.touches[0].clientY;
+                currentY.current = e.touches[0].clientY;
+                isActive.current = true;
+                setState('pulling');
+            }
         };
 
         const handleTouchMove = (e) => {
-            currentY.current = e.touches[0].clientY;
-            const distance = currentY.current - startY.current;
+            if (!isActive.current || state === 'loading') return;
 
-            // ONLY prevent default if ALL conditions are met:
-            // 1. We started at top (wasAtTop is true)
-            // 2. We're still at top (scrollY is 0)
-            // 3. We're pulling DOWN (distance > 0)
-            // 4. Not currently refreshing
-            if (wasAtTop.current && window.scrollY <= 0 && distance > 10 && !isRefreshing) {
+            currentY.current = e.touches[0].clientY;
+            const rawDistance = currentY.current - startY.current;
+
+            // Only prevent default if pulling down at top
+            if (rawDistance > 5 && window.scrollY === 0) {
                 e.preventDefault();
-            } else if (distance < 0 || window.scrollY > 0) {
-                // User is scrolling normally or page has scrolled, disable pull-to-refresh
+            } else if (rawDistance <= 0 || window.scrollY > 0) {
+                // Cancel pull
                 isActive.current = false;
-                wasAtTop.current = false;
-                setPullDistance(0);
+                setState('idle');
+                setVisualOffset(0);
+                setRotation(0);
             }
         };
 
         const handleTouchEnd = async () => {
-            if (!isActive.current || !wasAtTop.current) {
-                setPullDistance(0);
-                startY.current = 0;
-                currentY.current = 0;
-                isActive.current = false;
-                wasAtTop.current = false;
-                return;
-            }
-
-            const finalDistance = Math.pow(currentY.current - startY.current, 0.8);
-
-            if (finalDistance >= threshold && !isRefreshing) {
-                setIsRefreshing(true);
-                setPullDistance(threshold);
-                await onRefresh();
-                setIsRefreshing(false);
-                setPullDistance(0);
-            } else {
-                setPullDistance(0);
-            }
+            if (!isActive.current) return;
 
             isActive.current = false;
-            wasAtTop.current = false;
+
+            if (state === 'threshold') {
+                // Reached threshold - trigger refresh
+                setState('loading');
+                setVisualOffset(50); // Hold at 50px during loading
+
+                try {
+                    await onRefresh();
+                } catch (e) {
+                    console.error('Refresh error:', e);
+                }
+
+                setState('complete');
+                // Animate out
+                setTimeout(() => {
+                    setVisualOffset(0);
+                    setRotation(0);
+                    setTimeout(() => setState('idle'), 300);
+                }, 100);
+            } else {
+                // Didn't reach threshold - cancel
+                setState('idle');
+                setVisualOffset(0);
+                setRotation(0);
+            }
+
             startY.current = 0;
             currentY.current = 0;
         };
 
-        animationFrame = requestAnimationFrame(updatePull);
+        animationFrame = requestAnimationFrame(updateVisuals);
 
         document.addEventListener('touchstart', handleTouchStart, { passive: true });
         document.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -91,17 +129,15 @@ export const usePullToRefresh = (onRefresh, threshold = 60) => {
             document.removeEventListener('touchmove', handleTouchMove);
             document.removeEventListener('touchend', handleTouchEnd);
         };
-    }, [onRefresh, threshold, isRefreshing]);
-
-    const rotation = Math.min((pullDistance / threshold) * 360, 360);
-    const progress = Math.min(pullDistance / threshold, 1);
+    }, [onRefresh, state, triggerHaptic]);
 
     return {
-        pullDistance,
-        isRefreshing,
-        isPulling: pullDistance > 0,
-        isReadyToRefresh: pullDistance >= threshold,
+        state,
+        visualOffset,
         rotation,
-        progress
+        isVisible: state !== 'idle',
+        isLoading: state === 'loading',
+        isThreshold: state === 'threshold',
+        opacity: Math.min(visualOffset / 30, 1)
     };
 };

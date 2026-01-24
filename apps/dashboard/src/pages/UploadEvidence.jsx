@@ -19,11 +19,12 @@ const UploadEvidence = () => {
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
 
-    // Pull to refresh
+    // Pull to refresh - Google Chrome style
     const handleRefresh = useCallback(async () => {
+        await new Promise(resolve => setTimeout(resolve, 500));
         window.location.reload();
     }, []);
-    const { isPulling, pullDistance, isRefreshing, isReadyToRefresh, rotation, progress } = usePullToRefresh(handleRefresh);
+    const { state: refreshState, visualOffset, rotation, isVisible, isLoading, isThreshold, opacity } = usePullToRefresh(handleRefresh);
 
     // Load AI model on mount
     useEffect(() => {
@@ -304,53 +305,55 @@ const UploadEvidence = () => {
             {/* Background Grid Pattern */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: "radial-gradient(#ffffff 1px, transparent 1px)", backgroundSize: "24px 24px" }}></div>
 
-            {/* Pull to Refresh Indicator - Google Style */}
-            {(isPulling || isRefreshing) && (
+            {/* Pull to Refresh - Google Chrome Material Design Style */}
+            <div
+                className="fixed z-[200] pointer-events-none"
+                style={{
+                    top: '-50px',
+                    left: '50%',
+                    transform: `translateX(-50%) translateY(${isVisible ? visualOffset + 50 : 0}px) scale(${refreshState === 'complete' ? 0 : 1})`,
+                    transition: refreshState === 'pulling' || refreshState === 'threshold'
+                        ? 'none'
+                        : 'transform 0.3s cubic-bezier(0, 0, 0.31, 1)',
+                    opacity: isVisible ? opacity : 0
+                }}
+            >
                 <div
-                    className="fixed z-[100] pointer-events-none"
+                    className="rounded-full bg-white flex items-center justify-center"
                     style={{
-                        top: '20px',
-                        left: '50%',
-                        transform: `translateX(-50%) translateY(${Math.min(pullDistance * 0.5, 40)}px)`,
-                        transition: isRefreshing ? 'none' : 'transform 0.03s ease-out'
+                        width: '40px',
+                        height: '40px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)'
                     }}
                 >
-                    <div
-                        className={`rounded-full shadow-lg flex items-center justify-center transition-colors duration-150 ${isReadyToRefresh || isRefreshing
-                                ? 'bg-primary'
-                                : 'bg-white border border-gray-300'
-                            }`}
+                    {/* SVG Spinner - Google Blue */}
+                    <svg
+                        width="24"
+                        height="24"
+                        viewBox="0 0 24 24"
                         style={{
-                            width: '44px',
-                            height: '44px',
-                            opacity: Math.min(progress * 3, 1)
+                            transform: isLoading ? 'none' : `rotate(${rotation}deg)`,
+                            transition: isLoading ? 'none' : 'transform 0.02s linear'
                         }}
+                        className={isLoading ? 'animate-spin' : ''}
                     >
-                        <span
-                            className={`material-symbols-outlined ${isReadyToRefresh || isRefreshing ? 'text-white' : 'text-gray-500'}`}
+                        <circle
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            fill="none"
+                            stroke={isThreshold || isLoading ? '#4285F4' : '#9CA3AF'}
+                            strokeWidth="2.5"
+                            strokeDasharray={isLoading ? '50 100' : `${Math.min((visualOffset / 28) * 63, 63)} 63`}
+                            strokeLinecap="round"
                             style={{
-                                fontSize: '24px',
-                                transform: isRefreshing ? 'none' : `rotate(${rotation}deg)`,
-                                transition: 'transform 0.03s linear'
+                                transformOrigin: 'center',
+                                transition: 'stroke 0.15s ease'
                             }}
-                        >
-                            {isRefreshing ? 'sync' : 'refresh'}
-                        </span>
-                    </div>
+                        />
+                    </svg>
                 </div>
-            )}
-
-            {/* Refreshing spinner overlay */}
-            {isRefreshing && (
-                <div
-                    className="fixed z-[100] pointer-events-none"
-                    style={{ top: '60px', left: '50%', transform: 'translateX(-50%)' }}
-                >
-                    <div className="rounded-full bg-primary shadow-lg flex items-center justify-center" style={{ width: '44px', height: '44px' }}>
-                        <span className="material-symbols-outlined text-white animate-spin" style={{ fontSize: '24px' }}>refresh</span>
-                    </div>
-                </div>
-            )}
+            </div>
 
             {/* GPS Warning Overlay */}
             {(gpsStatus === 'disabled' || gpsStatus === 'error') && (
