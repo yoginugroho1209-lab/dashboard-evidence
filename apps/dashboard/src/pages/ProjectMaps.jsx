@@ -276,15 +276,25 @@ const ProjectMaps = () => {
 
             {/* MAP AREA */}
             <div className="flex-1 relative">
-                {/* Toggle Sidebar Button */}
-                <button onClick={() => setSidebarOpen(!sidebarOpen)} className="absolute top-4 left-4 z-30 w-10 h-10 rounded-full bg-surface-dark border border-border-dark flex items-center justify-center text-white hover:bg-white/10 transition shadow-lg">
-                    <span className="material-symbols-outlined">{sidebarOpen ? 'chevron_left' : 'menu'}</span>
+                {/* Toggle Sidebar Button - ALWAYS VISIBLE, FIXED */}
+                <button
+                    onClick={() => setSidebarOpen(!sidebarOpen)}
+                    className="fixed top-20 left-4 z-50 h-12 px-4 rounded-full bg-primary text-white flex items-center gap-2 shadow-xl hover:bg-primary/90 transition-all"
+                    style={{ marginLeft: sidebarOpen ? '288px' : '0' }}
+                >
+                    <span className="material-symbols-outlined text-2xl">{sidebarOpen ? 'chevron_left' : 'menu'}</span>
+                    <span className="text-sm font-medium">{sidebarOpen ? 'Tutup' : 'Menu'}</span>
                 </button>
 
-                {/* Locate Me Button */}
+                {/* Locate Me Button - BIGGER, FIXED */}
                 {userLocation && (
-                    <button onClick={locateMe} className="absolute top-4 right-4 z-30 w-10 h-10 rounded-full bg-surface-dark border border-border-dark flex items-center justify-center text-primary hover:bg-primary/10 transition shadow-lg" title="Lokasi Saya">
-                        <span className="material-symbols-outlined">my_location</span>
+                    <button
+                        onClick={locateMe}
+                        className="fixed top-20 right-4 z-50 h-12 px-4 rounded-full bg-surface-dark border border-primary text-primary flex items-center gap-2 shadow-xl hover:bg-primary/10 transition-all"
+                        title="Lokasi Saya"
+                    >
+                        <span className="material-symbols-outlined text-2xl">my_location</span>
+                        <span className="text-sm font-medium">Lokasi</span>
                     </button>
                 )}
 
