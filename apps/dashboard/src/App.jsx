@@ -10,6 +10,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Technicians from './pages/Technicians'
 import UploadEvidence from './pages/UploadEvidence'
+import ProjectMaps from './pages/ProjectMaps'
 
 import ForgotPassword from './pages/ForgotPassword'
 import UpdatePassword from './pages/UpdatePassword'
@@ -45,6 +46,7 @@ function App() {
                         <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
                         <Route path="/technicians" element={<ProtectedRoute><Technicians /></ProtectedRoute>} />
                         <Route path="/upload-evidence" element={<ProtectedRoute><UploadEvidence /></ProtectedRoute>} />
+                        <Route path="/project-maps" element={<ProtectedRoute><ProjectMaps /></ProtectedRoute>} />
                     </Routes>
                 </Layout>
             </Router>
