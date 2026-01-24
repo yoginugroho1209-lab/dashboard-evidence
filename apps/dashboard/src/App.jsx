@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -19,11 +18,10 @@ import UpdatePassword from './pages/UpdatePassword'
 function Layout({ children }) {
     const location = useLocation();
     const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
-    const [sidebarOpen, setSidebarOpen] = useState(false);
 
     return (
         <div className="flex h-screen w-full bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden selection:bg-primary/30 selection:text-white">
-            {!isAuthPage && <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />}
+            {!isAuthPage && <Sidebar />}
             {children}
         </div>
     );
