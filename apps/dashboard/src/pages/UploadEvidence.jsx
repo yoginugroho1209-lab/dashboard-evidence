@@ -276,8 +276,9 @@ const UploadEvidence = () => {
                         point_id: analysisResult.matchedPoint.point?.dbId || null,
                         project_id: analysisResult.matchedPoint.point?.projectId || null,
                         uploaded_by: user?.id || null,
-                        category: category,
-                        infrastructure_type: infrastructureType,
+                        // Note: Uncomment these after running add_infrastructure_columns.sql in Supabase
+                        // category: category,
+                        // infrastructure_type: infrastructureType,
                     }
                 ])
                 .select();
