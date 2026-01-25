@@ -355,19 +355,19 @@ const ProjectMaps = () => {
                 </div>
             </div>
 
-            {/* TOGGLE BUTTON - Tombol kecil floating di bawah panel */}
+            {/* TOGGLE BUTTON - Tombol kecil floating, smooth mengikuti panel */}
             <button
                 onClick={() => setPanelOpen(!panelOpen)}
-                className={`fixed left-1/2 -translate-x-1/2 z-40 w-12 h-8 bg-primary text-white rounded-b-lg shadow-xl flex items-center justify-center transition-all duration-300 hover:h-10 ${panelOpen ? '' : 'top-0 rounded-b-xl'}`}
-                style={panelOpen ? { top: 'auto' } : {}}
+                className="fixed left-1/2 -translate-x-1/2 z-40 w-12 h-8 bg-primary text-white rounded-b-lg shadow-xl flex items-center justify-center transition-all duration-500 ease-in-out hover:h-10"
+                style={{ top: panelOpen ? `${topPanelHeight}px` : '0px' }}
             >
                 <span className="material-symbols-outlined text-xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
             </button>
 
-            {/* GPS STATUS - Di tengah, di bawah toggle button */}
+            {/* GPS STATUS - Di tengah, smooth mengikuti panel + toggle */}
             <div
-                className={`fixed left-1/2 -translate-x-1/2 z-30 transition-all duration-300 ${panelOpen ? 'mt-12' : 'top-16'}`}
-                style={panelOpen ? { top: 'auto' } : {}}
+                className="fixed left-1/2 -translate-x-1/2 z-30 transition-all duration-500 ease-in-out"
+                style={{ top: panelOpen ? `${topPanelHeight + 48}px` : '48px' }}
             >
                 <div className={`px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-xl shadow-xl flex items-center gap-2 ${userLocation ? 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/50' : 'bg-red-500/25 text-red-400 border border-red-500/50'}`}>
                     <span className="relative flex h-3 w-3">
