@@ -346,6 +346,15 @@ const ProjectMaps = () => {
                 @keyframes pulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.15);} }
                 @keyframes slideDown { from{transform:translateY(-100%);opacity:0;} to{transform:translateY(0);opacity:1;} }
                 @keyframes fadeIn { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:translateY(0);} }
+                select option {
+                    background-color: #1a1b1e;
+                    color: white;
+                    padding: 12px;
+                }
+                select option:hover, select option:focus, select option:checked {
+                    background-color: #1B988D;
+                    color: white;
+                }
             `}</style>
 
             {/* FULL SCREEN MAP */}
