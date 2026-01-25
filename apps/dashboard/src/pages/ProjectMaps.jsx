@@ -289,40 +289,42 @@ const ProjectMaps = () => {
             {/* FULL SCREEN MAP */}
             <div ref={mapRef} className="absolute inset-0 z-0"></div>
 
-            {/* TOP PANEL - ProjectMaps Controls - SCALED UP */}
+            {/* TOP PANEL - ProjectMaps Controls - RESPONSIVE */}
             <div
                 className={`fixed top-0 left-0 right-0 z-40 transition-all duration-500 ease-in-out ${panelOpen ? 'translate-y-0' : '-translate-y-full'}`}
             >
                 <div className="bg-surface-dark/95 backdrop-blur-xl border-b border-border-dark shadow-2xl">
-                    {/* Header with Navigation - Larger */}
-                    <div className="flex items-center gap-4 px-5 py-4 border-b border-white/5">
-                        <span className="material-symbols-outlined text-4xl text-primary">explore</span>
-                        <span className="font-bold text-2xl text-white">Project Maps</span>
+                    {/* Header with Navigation - Responsive */}
+                    <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-white/5">
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                            <span className="material-symbols-outlined text-3xl sm:text-4xl text-primary">explore</span>
+                            <span className="font-bold text-xl sm:text-2xl text-white whitespace-nowrap">Project Maps</span>
+                        </div>
 
-                        {/* Quick Navigation - Bigger touch targets */}
-                        <div className="ml-auto flex items-center gap-1">
-                            <a href="/upload-evidence" className="min-w-[48px] min-h-[48px] px-4 py-3 rounded-xl text-base text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center gap-2">
-                                <span className="material-symbols-outlined text-2xl">photo_camera</span>
-                                <span className="hidden sm:inline font-medium">Upload</span>
+                        {/* Quick Navigation - Responsive */}
+                        <div className="ml-auto flex flex-wrap items-center gap-1">
+                            <a href="/upload-evidence" className="min-w-[44px] min-h-[44px] px-3 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center gap-2">
+                                <span className="material-symbols-outlined text-xl sm:text-2xl">photo_camera</span>
+                                <span className="hidden md:inline font-medium">Upload</span>
                             </a>
-                            <a href="/projects" className="min-w-[48px] min-h-[48px] px-4 py-3 rounded-xl text-base text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center gap-2">
-                                <span className="material-symbols-outlined text-2xl">folder_open</span>
-                                <span className="hidden sm:inline font-medium">Projects</span>
+                            <a href="/projects" className="min-w-[44px] min-h-[44px] px-3 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center gap-2">
+                                <span className="material-symbols-outlined text-xl sm:text-2xl">folder_open</span>
+                                <span className="hidden md:inline font-medium">Projects</span>
                             </a>
-                            <a href="/reports" className="min-w-[48px] min-h-[48px] px-4 py-3 rounded-xl text-base text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center gap-2">
-                                <span className="material-symbols-outlined text-2xl">description</span>
-                                <span className="hidden sm:inline font-medium">Reports</span>
+                            <a href="/reports" className="min-w-[44px] min-h-[44px] px-3 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center gap-2">
+                                <span className="material-symbols-outlined text-xl sm:text-2xl">description</span>
+                                <span className="hidden md:inline font-medium">Reports</span>
                             </a>
                         </div>
                     </div>
 
-                    {/* Filters - Larger dropdowns */}
-                    <div className="flex gap-3 px-5 py-4">
-                        <select value={selectedRegion} onChange={(e) => { setSelectedRegion(e.target.value); setSelectedProjectId(''); }} className="flex-1 bg-white/5 border-2 border-white/15 text-white text-lg font-medium rounded-xl h-14 px-5 focus:border-primary focus:outline-none transition">
+                    {/* Filters - Responsive dropdowns */}
+                    <div className="flex flex-wrap gap-3 px-4 py-3">
+                        <select value={selectedRegion} onChange={(e) => { setSelectedRegion(e.target.value); setSelectedProjectId(''); }} className="flex-1 min-w-[140px] bg-white/5 border-2 border-white/15 text-white text-base sm:text-lg font-medium rounded-xl h-12 sm:h-14 px-3 sm:px-5 focus:border-primary focus:outline-none transition">
                             <option value="">Semua Region</option>
                             {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                         </select>
-                        <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="flex-1 bg-white/5 border-2 border-white/15 text-white text-lg font-medium rounded-xl h-14 px-5 focus:border-primary focus:outline-none transition">
+                        <select value={selectedProjectId} onChange={(e) => setSelectedProjectId(e.target.value)} className="flex-1 min-w-[140px] bg-white/5 border-2 border-white/15 text-white text-base sm:text-lg font-medium rounded-xl h-12 sm:h-14 px-3 sm:px-5 focus:border-primary focus:outline-none transition">
                             <option value="">Pilih Project</option>
                             {filteredProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
