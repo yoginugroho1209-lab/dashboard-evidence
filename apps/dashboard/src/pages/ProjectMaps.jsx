@@ -352,31 +352,22 @@ const ProjectMaps = () => {
                             </div>
                         </div>
                     )}
-
-                    {/* TOGGLE BUTTON - Di dalam panel, warna biru */}
-                    <button
-                        onClick={() => setPanelOpen(!panelOpen)}
-                        className="w-full py-2 bg-primary/20 hover:bg-primary/30 text-primary flex items-center justify-center transition-all border-t border-primary/20"
-                    >
-                        <span className="material-symbols-outlined text-2xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
-                    </button>
                 </div>
             </div>
 
-            {/* TOGGLE BUTTON when panel is closed - warna biru */}
-            {!panelOpen && (
-                <button
-                    onClick={() => setPanelOpen(true)}
-                    className="fixed top-0 left-1/2 -translate-x-1/2 z-40 w-14 h-10 bg-primary text-white rounded-b-xl shadow-2xl flex items-center justify-center transition-all hover:h-12"
-                >
-                    <span className="material-symbols-outlined text-2xl">expand_more</span>
-                </button>
-            )}
+            {/* TOGGLE BUTTON - Tombol kecil floating di bawah panel */}
+            <button
+                onClick={() => setPanelOpen(!panelOpen)}
+                className={`fixed left-1/2 -translate-x-1/2 z-40 w-12 h-8 bg-primary text-white rounded-b-lg shadow-xl flex items-center justify-center transition-all duration-300 hover:h-10 ${panelOpen ? '' : 'top-0 rounded-b-xl'}`}
+                style={panelOpen ? { top: 'auto' } : {}}
+            >
+                <span className="material-symbols-outlined text-xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
+            </button>
 
-            {/* GPS STATUS - Posisi di kanan atas, tidak nabrak toggle */}
+            {/* GPS STATUS - Di tengah, di bawah toggle button */}
             <div
-                className="fixed right-4 z-40 transition-all duration-500"
-                style={{ top: panelOpen ? '16px' : '60px' }}
+                className={`fixed left-1/2 -translate-x-1/2 z-30 transition-all duration-300 ${panelOpen ? 'mt-12' : 'top-16'}`}
+                style={panelOpen ? { top: 'auto' } : {}}
             >
                 <div className={`px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-xl shadow-xl flex items-center gap-2 ${userLocation ? 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/50' : 'bg-red-500/25 text-red-400 border border-red-500/50'}`}>
                     <span className="relative flex h-3 w-3">
