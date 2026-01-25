@@ -332,37 +332,46 @@ const ProjectMaps = () => {
 
                     {/* Points horizontal scroll - Larger chips */}
                     {points.length > 0 && (
-                        <div className="border-t border-white/5 py-3 px-5">
-                            <div className="flex items-center gap-4 mb-3 text-base text-slate-400">
-                                <span className="bg-primary/20 text-primary px-4 py-1.5 rounded-full font-bold text-lg">{points.length}</span>
-                                <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-green-500"></span>Foto</span>
-                                <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-yellow-400"></span>Belum</span>
+                        <div className="border-t border-white/5 py-2 sm:py-3 px-4 sm:px-5">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-2 sm:mb-3 text-sm sm:text-base text-slate-400">
+                                <span className="bg-primary/20 text-primary px-3 sm:px-4 py-1 sm:py-1.5 rounded-full font-bold text-base sm:text-lg">{points.length}</span>
+                                <span className="flex items-center gap-1 sm:gap-2"><span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-green-500"></span>Foto</span>
+                                <span className="flex items-center gap-1 sm:gap-2"><span className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-yellow-400"></span>Belum</span>
                             </div>
-                            <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide">
+                            <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 sm:pb-3 scrollbar-hide">
                                 {points.map((p, i) => (
                                     <button
                                         key={p.id}
                                         onClick={() => clickPoint(p)}
-                                        className={`flex-shrink-0 min-h-[48px] px-5 py-3 rounded-xl text-base font-semibold transition-all flex items-center gap-3 ${selectedPoint?.id === p.id ? 'bg-primary text-white' : 'bg-white/5 text-white hover:bg-white/10'}`}
+                                        className={`flex-shrink-0 min-h-[40px] sm:min-h-[48px] px-3 sm:px-5 py-2 sm:py-3 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all flex items-center gap-2 sm:gap-3 ${selectedPoint?.id === p.id ? 'bg-primary text-white' : 'bg-white/5 text-white hover:bg-white/10'}`}
                                     >
-                                        <span className={`w-3 h-3 rounded-full ${pointsWithEvidence.has(p.id) ? 'bg-green-500' : 'bg-yellow-400'}`}></span>
-                                        <span className="truncate max-w-[140px]">{p.point_id || p.name || `Titik ${i + 1}`}</span>
+                                        <span className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${pointsWithEvidence.has(p.id) ? 'bg-green-500' : 'bg-yellow-400'}`}></span>
+                                        <span className="truncate max-w-[100px] sm:max-w-[140px]">{p.point_id || p.name || `Titik ${i + 1}`}</span>
                                     </button>
                                 ))}
                             </div>
                         </div>
                     )}
+
+                    {/* TOGGLE BUTTON - Di dalam panel, di bagian bawah */}
+                    <button
+                        onClick={() => setPanelOpen(!panelOpen)}
+                        className="w-full py-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-all border-t border-white/5"
+                    >
+                        <span className="material-symbols-outlined text-2xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
+                    </button>
                 </div>
             </div>
 
-            {/* TOGGLE PANEL BUTTON - Larger */}
-            <button
-                onClick={() => setPanelOpen(!panelOpen)}
-                className={`fixed left-1/2 -translate-x-1/2 z-50 min-w-[56px] min-h-[48px] w-20 h-12 bg-primary text-white rounded-b-2xl shadow-2xl flex items-center justify-center transition-all duration-500 hover:h-14`}
-                style={{ top: panelOpen ? `${topPanelHeight}px` : '0' }}
-            >
-                <span className="material-symbols-outlined text-4xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
-            </button>
+            {/* TOGGLE BUTTON when panel is closed */}
+            {!panelOpen && (
+                <button
+                    onClick={() => setPanelOpen(true)}
+                    className="fixed top-0 left-1/2 -translate-x-1/2 z-40 w-14 h-10 bg-primary text-white rounded-b-xl shadow-2xl flex items-center justify-center transition-all hover:h-12"
+                >
+                    <span className="material-symbols-outlined text-2xl">expand_more</span>
+                </button>
+            )}
 
             {/* GPS STATUS - Larger badge */}
             <div
@@ -378,15 +387,15 @@ const ProjectMaps = () => {
                 </div>
             </div>
 
-            {/* MY LOCATION BUTTON - Larger FAB 20x20 */}
+            {/* MY LOCATION BUTTON - Bottom right, tidak nabrak panel */}
             {userLocation && (
                 <button
                     onClick={locateMe}
-                    className="fixed bottom-44 right-5 z-[60] min-w-[56px] min-h-[56px] w-20 h-20 rounded-2xl bg-white/20 backdrop-blur-xl border-3 border-primary/60 text-primary flex items-center justify-center shadow-2xl hover:bg-primary hover:text-white hover:scale-110 transition-all duration-300"
+                    className="fixed bottom-32 sm:bottom-40 right-3 sm:right-5 z-[60] w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-xl border-2 border-primary/60 text-primary flex items-center justify-center shadow-2xl hover:bg-primary hover:text-white hover:scale-110 transition-all duration-300"
                     title="Lokasi Saya"
-                    style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.5), 0 0 35px rgba(27,152,141,0.4)' }}
+                    style={{ boxShadow: '0 8px 30px rgba(0,0,0,0.4), 0 0 25px rgba(27,152,141,0.3)' }}
                 >
-                    <span className="material-symbols-outlined text-5xl">my_location</span>
+                    <span className="material-symbols-outlined text-2xl sm:text-4xl">my_location</span>
                 </button>
             )}
 
