@@ -23,6 +23,7 @@ const ProjectMaps = () => {
     const [isNavigating, setIsNavigating] = useState(false);
     const [distance, setDistance] = useState(null);
     const [panelOpen, setPanelOpen] = useState(true);
+    const [panelHeight, setPanelHeight] = useState(0);
     const mapRef = useRef(null);
     const mapInstanceRef = useRef(null);
     const userMarkerRef = useRef(null);
@@ -30,6 +31,7 @@ const ProjectMaps = () => {
     const lineRef = useRef(null);
     const arrowsRef = useRef([]);
     const selectedPointRef = useRef(null);
+    const panelRef = useRef(null);
 
     useEffect(() => {
         supabase.from('projects').select('*').is('deleted_at', null).order('created_at', { ascending: false })
@@ -275,8 +277,25 @@ const ProjectMaps = () => {
         if (points.length > 0) addPoints(points, pointsWithEvidence);
     };
 
-    // Calculate top panel height for positioning
-    const topPanelHeight = points.length > 0 ? 180 : 130;
+    // Track panel height dynamically
+    useEffect(() => {
+        if (!panelRef.current) return;
+
+        const updateHeight = () => {
+            if (panelRef.current) {
+                setPanelHeight(panelRef.current.offsetHeight);
+            }
+        };
+
+        // Initial measurement
+        updateHeight();
+
+        // Watch for resize
+        const resizeObserver = new ResizeObserver(updateHeight);
+        resizeObserver.observe(panelRef.current);
+
+        return () => resizeObserver.disconnect();
+    }, [points, panelOpen]);
 
     return (
         <main className="flex-1 h-full overflow-hidden bg-background-dark relative">
@@ -291,6 +310,7 @@ const ProjectMaps = () => {
 
             {/* TOP PANEL - ProjectMaps Controls - RESPONSIVE */}
             <div
+                ref={panelRef}
                 className={`fixed top-0 left-0 right-0 z-40 transition-all duration-500 ease-in-out ${panelOpen ? 'translate-y-0' : '-translate-y-full'}`}
             >
                 <div className="bg-surface-dark/95 backdrop-blur-xl border-b border-border-dark shadow-2xl">
@@ -355,19 +375,19 @@ const ProjectMaps = () => {
                 </div>
             </div>
 
-            {/* TOGGLE BUTTON - Tombol kecil floating, smooth mengikuti panel */}
+            {/* TOGGLE BUTTON - Tombol kecil, persis di bawah panel */}
             <button
                 onClick={() => setPanelOpen(!panelOpen)}
-                className="fixed left-1/2 -translate-x-1/2 z-40 w-12 h-8 bg-primary text-white rounded-b-lg shadow-xl flex items-center justify-center transition-all duration-500 ease-in-out hover:h-10"
-                style={{ top: panelOpen ? `${topPanelHeight}px` : '0px' }}
+                className="fixed left-1/2 -translate-x-1/2 z-50 w-12 h-8 bg-primary text-white rounded-b-lg shadow-xl flex items-center justify-center transition-all duration-500 ease-in-out hover:h-10"
+                style={{ top: panelOpen ? `${panelHeight}px` : '0px' }}
             >
                 <span className="material-symbols-outlined text-xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
             </button>
 
-            {/* GPS STATUS - Di tengah, smooth mengikuti panel + toggle */}
+            {/* GPS STATUS - Di tengah, di bawah toggle button */}
             <div
                 className="fixed left-1/2 -translate-x-1/2 z-30 transition-all duration-500 ease-in-out"
-                style={{ top: panelOpen ? `${topPanelHeight + 48}px` : '48px' }}
+                style={{ top: panelOpen ? `${panelHeight + 44}px` : '44px' }}
             >
                 <div className={`px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-xl shadow-xl flex items-center gap-2 ${userLocation ? 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/50' : 'bg-red-500/25 text-red-400 border border-red-500/50'}`}>
                     <span className="relative flex h-3 w-3">
