@@ -283,10 +283,26 @@ const ProjectMaps = () => {
                 className={`fixed top-0 left-0 right-0 z-40 transition-all duration-500 ease-in-out ${panelOpen ? 'translate-y-0' : '-translate-y-full'}`}
             >
                 <div className="bg-surface-dark/95 backdrop-blur-xl border-b border-border-dark shadow-2xl">
-                    {/* Header */}
-                    <div className="flex items-center gap-3 px-4 py-3">
+                    {/* Header with Navigation */}
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-white/5">
                         <span className="material-symbols-outlined text-3xl text-primary">explore</span>
                         <span className="font-bold text-xl text-white">Project Maps</span>
+
+                        {/* Quick Navigation */}
+                        <div className="ml-auto flex items-center gap-2">
+                            <a href="/upload-evidence" className="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-lg">photo_camera</span>
+                                <span className="hidden sm:inline">Upload</span>
+                            </a>
+                            <a href="/projects" className="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-lg">folder_open</span>
+                                <span className="hidden sm:inline">Projects</span>
+                            </a>
+                            <a href="/reports" className="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/10 transition flex items-center gap-1.5">
+                                <span className="material-symbols-outlined text-lg">description</span>
+                                <span className="hidden sm:inline">Reports</span>
+                            </a>
+                        </div>
                     </div>
 
                     {/* Filters */}

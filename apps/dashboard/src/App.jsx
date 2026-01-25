@@ -18,10 +18,11 @@ import UpdatePassword from './pages/UpdatePassword'
 function Layout({ children }) {
     const location = useLocation();
     const isAuthPage = ['/login', '/register', '/forgot-password'].includes(location.pathname);
+    const isFullScreenPage = location.pathname === '/project-maps';
 
     return (
         <div className="flex h-screen w-full bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-hidden selection:bg-primary/30 selection:text-white">
-            {!isAuthPage && <Sidebar />}
+            {!isAuthPage && !isFullScreenPage && <Sidebar />}
             {children}
         </div>
     );
