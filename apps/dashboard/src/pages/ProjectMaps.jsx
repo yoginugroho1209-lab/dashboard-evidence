@@ -101,56 +101,99 @@ const ProjectMaps = () => {
         else { userMarkerRef.current = L.marker([loc.lat, loc.lng], { icon, zIndexOffset: 2000 }).addTo(mapInstanceRef.current); }
     };
 
-    const updateRouteLine = (userLoc, target) => {
+    // Fetch route from OSRM (walking mode)
+    const fetchRoute = async (startLat, startLng, endLat, endLng) => {
+        try {
+            const url = `https://router.project-osrm.org/route/v1/foot/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+                const route = data.routes[0];
+                return {
+                    coordinates: route.geometry.coordinates.map(coord => [coord[1], coord[0]]), // [lng, lat] -> [lat, lng]
+                    distance: route.distance, // in meters
+                    duration: route.duration // in seconds
+                };
+            }
+        } catch (error) {
+            console.log('OSRM routing failed, using straight line:', error);
+        }
+        return null;
+    };
+
+    const updateRouteLine = async (userLoc, target) => {
         if (!mapInstanceRef.current || !window.L) return;
         const L = window.L;
         const map = mapInstanceRef.current;
 
+        // Clear existing route
         if (lineRef.current) map.removeLayer(lineRef.current);
         arrowsRef.current.forEach(a => map.removeLayer(a));
         arrowsRef.current = [];
 
-        // Outer glow layer (larger, more transparent)
-        const outerGlow = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
-            color: '#00FFCC', weight: 20, opacity: 0.15, lineCap: 'round', lineJoin: 'round'
+        // Try to get road-following route
+        const routeData = await fetchRoute(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
+
+        let routeCoords;
+        let routeDistance;
+
+        if (routeData) {
+            // Use OSRM route (follows roads)
+            routeCoords = routeData.coordinates;
+            routeDistance = routeData.distance;
+        } else {
+            // Fallback to straight line
+            routeCoords = [[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]];
+            routeDistance = calcDist(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
+        }
+
+        // Update distance state with road distance
+        setDistance(routeDistance);
+
+        // Outer glow layer
+        const outerGlow = L.polyline(routeCoords, {
+            color: '#00FFCC', weight: 16, opacity: 0.15, lineCap: 'round', lineJoin: 'round'
         }).addTo(map);
         arrowsRef.current.push(outerGlow);
 
         // Inner glow layer
-        const innerGlow = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
-            color: '#1B988D', weight: 10, opacity: 0.35, lineCap: 'round', lineJoin: 'round'
+        const innerGlow = L.polyline(routeCoords, {
+            color: '#1B988D', weight: 8, opacity: 0.35, lineCap: 'round', lineJoin: 'round'
         }).addTo(map);
         arrowsRef.current.push(innerGlow);
 
-        // Main solid line (no dash for cleaner look)
-        lineRef.current = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
+        // Main solid line
+        lineRef.current = L.polyline(routeCoords, {
             color: '#1B988D', weight: 4, opacity: 1, lineCap: 'round', lineJoin: 'round'
         }).addTo(map);
 
-        const bearing = calcBearing(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
-        const dist = calcDist(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
+        // Add direction arrows along the route
+        if (routeCoords.length >= 2) {
+            const numArrows = Math.min(Math.max(Math.floor(routeDistance / 50), 3), 15);
+            const step = Math.floor(routeCoords.length / (numArrows + 1));
 
-        // More arrows for longer distances, minimum 3, max 12
-        const numArrows = Math.min(Math.max(Math.floor(dist / 40), 3), 12);
+            for (let i = 1; i <= numArrows && step * i < routeCoords.length - 1; i++) {
+                const idx = step * i;
+                const current = routeCoords[idx];
+                const next = routeCoords[Math.min(idx + 1, routeCoords.length - 1)];
 
-        for (let i = 1; i <= numArrows; i++) {
-            const fraction = i / (numArrows + 1);
-            const lat = userLoc.lat + (target.latitude - userLoc.lat) * fraction;
-            const lng = userLoc.lng + (target.longitude - userLoc.lng) * fraction;
+                // Calculate bearing for this segment
+                const bearing = calcBearing(current[0], current[1], next[0], next[1]);
 
-            // Larger chevron-style arrow with enhanced glow
-            const arrowIcon = L.divIcon({
-                className: 'arrow-marker',
-                html: `<div style="transform:rotate(${bearing}deg);width:36px;height:36px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 10px rgba(0,255,204,0.9)) drop-shadow(0 3px 6px rgba(0,0,0,0.6));">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="6 15 12 9 18 15"/>
-                    </svg>
-                </div>`,
-                iconSize: [36, 36],
-                iconAnchor: [18, 18]
-            });
-            const arrow = L.marker([lat, lng], { icon: arrowIcon, zIndexOffset: 500, interactive: false }).addTo(map);
-            arrowsRef.current.push(arrow);
+                const arrowIcon = L.divIcon({
+                    className: 'arrow-marker',
+                    html: `<div style="transform:rotate(${bearing}deg);width:32px;height:32px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 8px rgba(0,255,204,0.9)) drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="6 15 12 9 18 15"/>
+                        </svg>
+                    </div>`,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+                const arrow = L.marker(current, { icon: arrowIcon, zIndexOffset: 500, interactive: false }).addTo(map);
+                arrowsRef.current.push(arrow);
+            }
         }
     };
 
