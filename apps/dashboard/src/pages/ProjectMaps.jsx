@@ -99,28 +99,7 @@ const ProjectMaps = () => {
         else { userMarkerRef.current = L.marker([loc.lat, loc.lng], { icon, zIndexOffset: 2000 }).addTo(mapInstanceRef.current); }
     };
 
-    // Fetch route from OSRM (road-following)
-    const fetchRoute = async (userLoc, target) => {
-        try {
-            const url = `https://router.project-osrm.org/route/v1/foot/${userLoc.lng},${userLoc.lat};${target.longitude},${target.latitude}?overview=full&geometries=geojson`;
-            const res = await fetch(url);
-            const data = await res.json();
-            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-                const coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
-                const routeDistance = data.routes[0].distance; // meters
-                return { coords, distance: routeDistance };
-            }
-        } catch (e) {
-            console.log('OSRM route failed, fallback to straight line');
-        }
-        // Fallback to straight line
-        return {
-            coords: [[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]],
-            distance: calcDist(userLoc.lat, userLoc.lng, target.latitude, target.longitude)
-        };
-    };
-
-    const updateRouteLine = async (userLoc, target) => {
+    const updateRouteLine = (userLoc, target) => {
         if (!mapInstanceRef.current || !window.L) return;
         const L = window.L;
         const map = mapInstanceRef.current;
@@ -129,47 +108,44 @@ const ProjectMaps = () => {
         arrowsRef.current.forEach(a => map.removeLayer(a));
         arrowsRef.current = [];
 
-        // Get route (road-following or fallback)
-        const { coords, distance: routeDist } = await fetchRoute(userLoc, target);
-        setDistance(routeDist);
-
-        // Outer glow layer
-        const outerGlow = L.polyline(coords, {
-            color: '#00FFCC', weight: 22, opacity: 0.15, lineCap: 'round', lineJoin: 'round'
+        // Outer glow layer (larger, more transparent)
+        const outerGlow = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
+            color: '#00FFCC', weight: 20, opacity: 0.15, lineCap: 'round', lineJoin: 'round'
         }).addTo(map);
         arrowsRef.current.push(outerGlow);
 
         // Inner glow layer
-        const innerGlow = L.polyline(coords, {
-            color: '#1B988D', weight: 12, opacity: 0.35, lineCap: 'round', lineJoin: 'round'
+        const innerGlow = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
+            color: '#1B988D', weight: 10, opacity: 0.35, lineCap: 'round', lineJoin: 'round'
         }).addTo(map);
         arrowsRef.current.push(innerGlow);
 
-        // Main solid line
-        lineRef.current = L.polyline(coords, {
-            color: '#1B988D', weight: 5, opacity: 1, lineCap: 'round', lineJoin: 'round'
+        // Main solid line (no dash for cleaner look)
+        lineRef.current = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
+            color: '#1B988D', weight: 4, opacity: 1, lineCap: 'round', lineJoin: 'round'
         }).addTo(map);
 
-        // Add arrows along the route
-        const numArrows = Math.min(Math.max(Math.floor(routeDist / 50), 3), 15);
+        const bearing = calcBearing(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
+        const dist = calcDist(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
+
+        // More arrows for longer distances, minimum 3, max 12
+        const numArrows = Math.min(Math.max(Math.floor(dist / 40), 3), 12);
+
         for (let i = 1; i <= numArrows; i++) {
-            const idx = Math.floor((i / (numArrows + 1)) * (coords.length - 1));
-            const nextIdx = Math.min(idx + 1, coords.length - 1);
-            const lat = coords[idx][0];
-            const lng = coords[idx][1];
+            const fraction = i / (numArrows + 1);
+            const lat = userLoc.lat + (target.latitude - userLoc.lat) * fraction;
+            const lng = userLoc.lng + (target.longitude - userLoc.lng) * fraction;
 
-            // Calculate bearing for this segment
-            const segBearing = calcBearing(coords[idx][0], coords[idx][1], coords[nextIdx][0], coords[nextIdx][1]);
-
+            // Larger chevron-style arrow with enhanced glow
             const arrowIcon = L.divIcon({
                 className: 'arrow-marker',
-                html: `<div style="transform:rotate(${segBearing}deg);width:40px;height:40px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 12px rgba(0,255,204,0.95)) drop-shadow(0 4px 8px rgba(0,0,0,0.7));">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+                html: `<div style="transform:rotate(${bearing}deg);width:36px;height:36px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 10px rgba(0,255,204,0.9)) drop-shadow(0 3px 6px rgba(0,0,0,0.6));">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="6 15 12 9 18 15"/>
                     </svg>
                 </div>`,
-                iconSize: [40, 40],
-                iconAnchor: [20, 20]
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
             });
             const arrow = L.marker([lat, lng], { icon: arrowIcon, zIndexOffset: 500, interactive: false }).addTo(map);
             arrowsRef.current.push(arrow);
@@ -230,16 +206,16 @@ const ProjectMaps = () => {
     const mkMarker = (L, p, name, sel, hasEv) => {
         const col = hasEv ? '#22C55E' : '#FBBF24';
         const bg = sel ? '#1B988D' : col;
-        const sz = sel ? 56 : 44; // Bigger markers
-        const glow = sel ? 'box-shadow:0 0 30px rgba(27,152,141,0.9);' : 'box-shadow:0 0 15px rgba(0,0,0,0.4);';
+        const sz = sel ? 44 : 32;
+        const glow = sel ? 'box-shadow:0 0 20px rgba(27,152,141,0.8);' : '';
         return L.marker([p.latitude, p.longitude], {
             icon: L.divIcon({
                 className: 'pt',
                 html: `<div style="position:relative;cursor:pointer;">
-                    <div style="width:${sz}px;height:${sz}px;background:${bg};border:${sel ? 6 : 5}px solid white;border-radius:50%;${glow}${sel ? 'animation:pulse 1.5s infinite;' : ''}"></div>
-                    <div style="position:absolute;top:${sz + 8}px;left:50%;transform:translateX(-50%);background:${sel ? '#1B988D' : 'rgba(0,0,0,0.95)'};color:white;padding:8px 14px;border-radius:10px;font-size:16px;font-weight:800;white-space:nowrap;max-width:180px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 4px 16px rgba(0,0,0,0.6);letter-spacing:0.5px;">${name}</div>
+                    <div style="width:${sz}px;height:${sz}px;background:${bg};border:${sel ? 5 : 4}px solid white;border-radius:50%;${glow}${sel ? 'animation:pulse 1.5s infinite;' : ''}"></div>
+                    <div style="position:absolute;top:${sz + 6}px;left:50%;transform:translateX(-50%);background:${sel ? '#1B988D' : 'rgba(0,0,0,0.9)'};color:white;padding:4px 8px;border-radius:6px;font-size:11px;font-weight:bold;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;box-shadow:0 2px 8px rgba(0,0,0,0.4);">${name}</div>
                 </div>`,
-                iconSize: [sz, sz + 50], iconAnchor: [sz / 2, sz / 2]
+                iconSize: [sz, sz + 35], iconAnchor: [sz / 2, sz / 2]
             }),
             zIndexOffset: sel ? 1000 : 0
         });
@@ -354,21 +330,21 @@ const ProjectMaps = () => {
 
                     {/* Points horizontal scroll - Larger chips */}
                     {points.length > 0 && (
-                        <div className="border-t border-white/5 py-4 px-5">
-                            <div className="flex items-center gap-5 mb-4 text-lg text-slate-300">
-                                <span className="bg-primary/25 text-primary px-5 py-2 rounded-full font-extrabold text-xl">{points.length}</span>
-                                <span className="flex items-center gap-3 bg-green-500/15 px-4 py-2 rounded-full"><span className="w-5 h-5 rounded-full bg-green-500"></span><span className="font-semibold">Foto</span></span>
-                                <span className="flex items-center gap-3 bg-yellow-400/15 px-4 py-2 rounded-full"><span className="w-5 h-5 rounded-full bg-yellow-400"></span><span className="font-semibold">Belum</span></span>
+                        <div className="border-t border-white/5 py-3 px-5">
+                            <div className="flex items-center gap-4 mb-3 text-base text-slate-400">
+                                <span className="bg-primary/20 text-primary px-4 py-1.5 rounded-full font-bold text-lg">{points.length}</span>
+                                <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-green-500"></span>Foto</span>
+                                <span className="flex items-center gap-2"><span className="w-4 h-4 rounded-full bg-yellow-400"></span>Belum</span>
                             </div>
                             <div className="flex gap-3 overflow-x-auto pb-3 scrollbar-hide">
                                 {points.map((p, i) => (
                                     <button
                                         key={p.id}
                                         onClick={() => clickPoint(p)}
-                                        className={`flex-shrink-0 min-h-[52px] px-6 py-3.5 rounded-xl text-lg font-bold transition-all flex items-center gap-3 ${selectedPoint?.id === p.id ? 'bg-primary text-white shadow-lg' : 'bg-white/8 text-white hover:bg-white/15'}`}
+                                        className={`flex-shrink-0 min-h-[48px] px-5 py-3 rounded-xl text-base font-semibold transition-all flex items-center gap-3 ${selectedPoint?.id === p.id ? 'bg-primary text-white' : 'bg-white/5 text-white hover:bg-white/10'}`}
                                     >
-                                        <span className={`w-4 h-4 rounded-full ${pointsWithEvidence.has(p.id) ? 'bg-green-500' : 'bg-yellow-400'}`}></span>
-                                        <span className="truncate max-w-[150px]">{p.point_id || p.name || `Titik ${i + 1}`}</span>
+                                        <span className={`w-3 h-3 rounded-full ${pointsWithEvidence.has(p.id) ? 'bg-green-500' : 'bg-yellow-400'}`}></span>
+                                        <span className="truncate max-w-[140px]">{p.point_id || p.name || `Titik ${i + 1}`}</span>
                                     </button>
                                 ))}
                             </div>
@@ -377,24 +353,24 @@ const ProjectMaps = () => {
                 </div>
             </div>
 
-            {/* TOGGLE PANEL BUTTON - Larger with more gap */}
+            {/* TOGGLE PANEL BUTTON - Larger */}
             <button
                 onClick={() => setPanelOpen(!panelOpen)}
-                className={`fixed left-1/2 -translate-x-1/2 z-50 min-w-[64px] min-h-[52px] w-24 h-14 bg-primary text-white rounded-b-2xl shadow-2xl flex items-center justify-center transition-all duration-500 hover:h-16`}
+                className={`fixed left-1/2 -translate-x-1/2 z-50 min-w-[56px] min-h-[48px] w-20 h-12 bg-primary text-white rounded-b-2xl shadow-2xl flex items-center justify-center transition-all duration-500 hover:h-14`}
                 style={{ top: panelOpen ? `${topPanelHeight}px` : '0' }}
             >
-                <span className="material-symbols-outlined text-5xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
+                <span className="material-symbols-outlined text-4xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
             </button>
 
-            {/* GPS STATUS - Positioned with clear gap below toggle (80px gap) */}
+            {/* GPS STATUS - Larger badge */}
             <div
-                className="fixed left-1/2 -translate-x-1/2 z-40 transition-all duration-500"
-                style={{ top: panelOpen ? `${topPanelHeight + 80}px` : '80px' }}
+                className="fixed left-1/2 -translate-x-1/2 z-50 transition-all duration-500"
+                style={{ top: panelOpen ? `${topPanelHeight + 60}px` : '60px' }}
             >
-                <div className={`px-7 py-4 rounded-2xl text-xl font-extrabold backdrop-blur-xl shadow-2xl flex items-center gap-4 ${userLocation ? 'bg-emerald-500/30 text-emerald-300 border-2 border-emerald-400/60' : 'bg-red-500/30 text-red-300 border-2 border-red-400/60'}`} style={{ boxShadow: userLocation ? '0 8px 40px rgba(16,185,129,0.5)' : '0 8px 30px rgba(0,0,0,0.5)' }}>
-                    <span className="relative flex h-6 w-6">
+                <div className={`px-6 py-4 rounded-2xl text-lg font-bold backdrop-blur-xl shadow-2xl flex items-center gap-4 ${userLocation ? 'bg-emerald-500/25 text-emerald-400 border-2 border-emerald-500/50' : 'bg-red-500/25 text-red-400 border-2 border-red-500/50'}`} style={{ boxShadow: userLocation ? '0 0 40px rgba(16,185,129,0.5)' : '0 4px 24px rgba(0,0,0,0.4)' }}>
+                    <span className="relative flex h-5 w-5">
                         {userLocation && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                        <span className={`relative inline-flex rounded-full h-6 w-6 ${userLocation ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                        <span className={`relative inline-flex rounded-full h-5 w-5 ${userLocation ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
                     </span>
                     {userLocation ? 'GPS Aktif' : 'GPS Off'}
                 </div>
@@ -413,10 +389,11 @@ const ProjectMaps = () => {
             )}
 
 
-            {/* NAVIGATION INFO PANEL - Highest z-index with safe area */}
+
+            {/* NAVIGATION INFO PANEL - Scaled Up 20% */}
             {selectedPoint && (
-                <div className="fixed bottom-0 left-0 right-0 z-[100] p-5 pb-8" style={{ animation: 'fadeIn 0.3s ease-out' }}>
-                    <div className="max-w-xl mx-auto bg-surface-dark/98 backdrop-blur-xl rounded-3xl p-6 border-2 border-border-dark shadow-2xl" style={{ boxShadow: '0 -8px 40px rgba(0,0,0,0.5)' }}>
+                <div className="fixed bottom-0 left-0 right-0 z-50 p-5" style={{ animation: 'fadeIn 0.3s ease-out' }}>
+                    <div className="max-w-xl mx-auto bg-surface-dark/95 backdrop-blur-xl rounded-3xl p-6 border-2 border-border-dark shadow-2xl">
                         <div className="flex items-center gap-5 mb-5">
                             {isNavigating && bearing !== null && (
                                 <div className="w-20 h-20 rounded-full bg-primary/20 border-3 border-primary flex items-center justify-center flex-shrink-0 shadow-xl" style={{ boxShadow: '0 0 30px rgba(27,152,141,0.5)' }}>

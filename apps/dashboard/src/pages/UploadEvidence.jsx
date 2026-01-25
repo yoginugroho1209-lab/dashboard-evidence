@@ -357,28 +357,28 @@ const UploadEvidence = () => {
             )}
 
             {/* Top Header */}
-            <header className="h-20 flex-shrink-0 px-8 flex items-center justify-between border-b border-border-dark bg-[#131416]/80 backdrop-blur-md z-10">
-                <div>
-                    <h2 className="text-white text-2xl font-heading font-bold leading-tight tracking-tight">Upload Evidence</h2>
-                    <p className="text-slate-400 text-sm">Capture & Analyze Field Photos</p>
+            <header className="min-h-[5rem] flex-shrink-0 px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap items-center justify-between gap-4 border-b border-border-dark bg-[#131416]/80 backdrop-blur-md z-10">
+                <div className="flex-shrink-0">
+                    <h2 className="text-white text-xl sm:text-2xl font-heading font-bold leading-tight tracking-tight">Upload Evidence</h2>
+                    <p className="text-slate-400 text-xs sm:text-sm">Capture & Analyze Field Photos</p>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4">
                     {/* Model Status */}
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${modelStatus === 'ready' ? 'bg-green-500/10 text-green-400' :
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${modelStatus === 'ready' ? 'bg-green-500/10 text-green-400' :
                         modelStatus === 'loading' ? 'bg-yellow-500/10 text-yellow-400' :
                             'bg-red-500/10 text-red-400'
                         }`}>
-                        <span className={`w-2 h-2 rounded-full ${modelStatus === 'ready' ? 'bg-green-400' :
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${modelStatus === 'ready' ? 'bg-green-400' :
                             modelStatus === 'loading' ? 'bg-yellow-400 animate-pulse' :
                                 'bg-red-400'
                             }`}></span>
-                        {modelStatus === 'ready' ? 'AI Ready' :
-                            modelStatus === 'loading' ? 'Loading AI...' : 'AI Error'}
+                        <span className="hidden xs:inline">{modelStatus === 'ready' ? 'AI Ready' :
+                            modelStatus === 'loading' ? 'Loading AI...' : 'AI Error'}</span>
                     </div>
                     {user && (
-                        <div className="text-right">
+                        <div className="text-right hidden sm:block">
                             <p className="text-xs text-slate-500">Logged in as</p>
-                            <p className="text-sm text-white">{user.email}</p>
+                            <p className="text-sm text-white truncate max-w-[200px]">{user.email}</p>
                         </div>
                     )}
                 </div>
@@ -397,9 +397,9 @@ const UploadEvidence = () => {
                         </div>
 
                         {/* Category & Infrastructure Type Selectors */}
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3 bg-[#1c1e20] rounded-lg border border-border-dark">
+                        <div className="flex flex-wrap gap-3 p-3 bg-[#1c1e20] rounded-lg border border-border-dark">
                             {/* Category */}
-                            <div>
+                            <div className="flex-1 min-w-[120px]">
                                 <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Kategori</label>
                                 <select
                                     value={category}
@@ -412,13 +412,13 @@ const UploadEvidence = () => {
                             </div>
 
                             {/* Infrastructure Type */}
-                            <div>
+                            <div className="flex-1 min-w-[120px]">
                                 <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Jenis</label>
                                 <div className="relative">
                                     <select
                                         value={infrastructureType}
                                         onChange={(e) => setInfrastructureType(e.target.value)}
-                                        className="w-full bg-[#131416] border border-border-dark text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-primary appearance-none"
+                                        className="w-full bg-[#131416] border border-border-dark text-white text-sm rounded px-3 py-2 pr-10 focus:outline-none focus:border-primary appearance-none"
                                     >
                                         <option value="ODC">ODC</option>
                                         <option value="ODP">ODP</option>
@@ -426,34 +426,34 @@ const UploadEvidence = () => {
                                         <option value="Kabel">Kabel</option>
                                         <option value="Closure">Closure</option>
                                     </select>
-                                    <span className={`absolute right-8 top-1/2 -translate-y-1/2 material-symbols-outlined text-[14px] ${infraConfig[infrastructureType]?.color || 'text-gray-400'}`}>
+                                    <span className={`absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-[14px] pointer-events-none ${infraConfig[infrastructureType]?.color || 'text-gray-400'}`}>
                                         {infraConfig[infrastructureType]?.icon || 'location_on'}
                                     </span>
                                 </div>
                             </div>
 
                             {/* Max Radius */}
-                            <div>
-                                <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1">Max Radius</label>
+                            <div className="flex-1 min-w-[100px]">
+                                <label className="block text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-1 whitespace-nowrap">Max Radius</label>
                                 <select
                                     value={radiusMeters}
                                     onChange={(e) => setRadiusMeters(Number(e.target.value))}
                                     className="w-full bg-[#131416] border border-border-dark text-white text-sm rounded px-3 py-2 focus:outline-none focus:border-primary"
                                 >
-                                    <option value={5}>5 meter</option>
-                                    <option value={10}>10 meter</option>
-                                    <option value={15}>15 meter</option>
-                                    <option value={20}>20 meter</option>
+                                    <option value={5}>5 m</option>
+                                    <option value={10}>10 m</option>
+                                    <option value={15}>15 m</option>
+                                    <option value={20}>20 m</option>
                                 </select>
                             </div>
 
                             {/* Selected Type Badge */}
-                            <div className="flex items-end">
+                            <div className="flex items-end min-w-[140px] flex-1">
                                 <div className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded ${infraConfig[infrastructureType]?.bg || 'bg-gray-500/20'}`}>
-                                    <span className={`material-symbols-outlined text-[18px] ${infraConfig[infrastructureType]?.color || 'text-gray-400'}`}>
+                                    <span className={`material-symbols-outlined text-[18px] flex-shrink-0 ${infraConfig[infrastructureType]?.color || 'text-gray-400'}`}>
                                         {infraConfig[infrastructureType]?.icon || 'location_on'}
                                     </span>
-                                    <span className={`text-sm font-bold ${infraConfig[infrastructureType]?.color || 'text-gray-400'}`}>
+                                    <span className={`text-sm font-bold whitespace-nowrap ${infraConfig[infrastructureType]?.color || 'text-gray-400'}`}>
                                         {category} - {infrastructureType}
                                     </span>
                                 </div>
