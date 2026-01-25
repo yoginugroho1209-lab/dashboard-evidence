@@ -400,19 +400,6 @@ const ProjectMaps = () => {
                 </div>
             </div>
 
-            {/* DYNAMIC FLOATING DISTANCE LABEL - Midpoint of Route */}
-            {selectedPoint && distance !== null && (
-                <div
-                    className="fixed left-1/2 -translate-x-1/2 z-30 pointer-events-none transition-all duration-300"
-                    style={{ top: panelOpen ? `${topPanelHeight + 160}px` : '160px' }}
-                >
-                    <div className="bg-primary/90 backdrop-blur-md text-white px-8 py-3 rounded-2xl text-2xl font-black shadow-2xl border-2 border-white/20 flex items-center gap-3 animate-pulse" style={{ textShadow: '0 2px 10px rgba(0,0,0,0.5)', boxShadow: '0 10px 40px rgba(0,0,0,0.4)' }}>
-                        <span className="material-symbols-outlined text-3xl">straighten</span>
-                        {fmtDist(distance)}
-                    </div>
-                </div>
-            )}
-
             {/* MY LOCATION BUTTON - Larger FAB 20x20 */}
             {userLocation && (
                 <button
