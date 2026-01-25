@@ -108,33 +108,44 @@ const ProjectMaps = () => {
         arrowsRef.current.forEach(a => map.removeLayer(a));
         arrowsRef.current = [];
 
-        const glowLine = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
-            color: '#1B988D', weight: 12, opacity: 0.3, lineCap: 'round'
+        // Outer glow layer (larger, more transparent)
+        const outerGlow = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
+            color: '#00FFCC', weight: 20, opacity: 0.15, lineCap: 'round', lineJoin: 'round'
         }).addTo(map);
+        arrowsRef.current.push(outerGlow);
 
-        lineRef.current = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
-            color: '#1B988D', weight: 5, opacity: 1, lineCap: 'round', dashArray: '1, 15'
+        // Inner glow layer
+        const innerGlow = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
+            color: '#1B988D', weight: 10, opacity: 0.35, lineCap: 'round', lineJoin: 'round'
         }).addTo(map);
-        arrowsRef.current.push(glowLine);
+        arrowsRef.current.push(innerGlow);
+
+        // Main solid line (no dash for cleaner look)
+        lineRef.current = L.polyline([[userLoc.lat, userLoc.lng], [target.latitude, target.longitude]], {
+            color: '#1B988D', weight: 4, opacity: 1, lineCap: 'round', lineJoin: 'round'
+        }).addTo(map);
 
         const bearing = calcBearing(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
         const dist = calcDist(userLoc.lat, userLoc.lng, target.latitude, target.longitude);
-        const numArrows = Math.min(Math.max(Math.floor(dist / 50), 2), 10);
+
+        // More arrows for longer distances, minimum 3, max 12
+        const numArrows = Math.min(Math.max(Math.floor(dist / 40), 3), 12);
 
         for (let i = 1; i <= numArrows; i++) {
             const fraction = i / (numArrows + 1);
             const lat = userLoc.lat + (target.latitude - userLoc.lat) * fraction;
             const lng = userLoc.lng + (target.longitude - userLoc.lng) * fraction;
 
+            // Chevron-style arrow with glow
             const arrowIcon = L.divIcon({
                 className: 'arrow-marker',
-                html: `<div style="transform:rotate(${bearing}deg);width:20px;height:20px;display:flex;align-items:center;justify-content:center;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#1B988D" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));">
-                        <path d="M12 2L4 14h6v8h4v-8h6L12 2z"/>
+                html: `<div style="transform:rotate(${bearing}deg);width:24px;height:24px;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 6px rgba(0,255,204,0.8)) drop-shadow(0 2px 4px rgba(0,0,0,0.5));">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00FFCC" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="6 15 12 9 18 15"/>
                     </svg>
                 </div>`,
-                iconSize: [20, 20],
-                iconAnchor: [10, 10]
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
             });
             const arrow = L.marker([lat, lng], { icon: arrowIcon, zIndexOffset: 500, interactive: false }).addTo(map);
             arrowsRef.current.push(arrow);
