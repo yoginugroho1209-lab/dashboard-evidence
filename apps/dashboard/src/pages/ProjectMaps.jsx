@@ -353,17 +353,17 @@ const ProjectMaps = () => {
                         </div>
                     )}
 
-                    {/* TOGGLE BUTTON - Di dalam panel, di bagian bawah */}
+                    {/* TOGGLE BUTTON - Di dalam panel, warna biru */}
                     <button
                         onClick={() => setPanelOpen(!panelOpen)}
-                        className="w-full py-2 bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center transition-all border-t border-white/5"
+                        className="w-full py-2 bg-primary/20 hover:bg-primary/30 text-primary flex items-center justify-center transition-all border-t border-primary/20"
                     >
                         <span className="material-symbols-outlined text-2xl">{panelOpen ? 'expand_less' : 'expand_more'}</span>
                     </button>
                 </div>
             </div>
 
-            {/* TOGGLE BUTTON when panel is closed */}
+            {/* TOGGLE BUTTON when panel is closed - warna biru */}
             {!panelOpen && (
                 <button
                     onClick={() => setPanelOpen(true)}
@@ -373,15 +373,15 @@ const ProjectMaps = () => {
                 </button>
             )}
 
-            {/* GPS STATUS - Larger badge */}
+            {/* GPS STATUS - Posisi di kanan atas, tidak nabrak toggle */}
             <div
-                className="fixed left-1/2 -translate-x-1/2 z-50 transition-all duration-500"
-                style={{ top: panelOpen ? `${topPanelHeight + 60}px` : '60px' }}
+                className="fixed right-4 z-40 transition-all duration-500"
+                style={{ top: panelOpen ? '16px' : '60px' }}
             >
-                <div className={`px-6 py-4 rounded-2xl text-lg font-bold backdrop-blur-xl shadow-2xl flex items-center gap-4 ${userLocation ? 'bg-emerald-500/25 text-emerald-400 border-2 border-emerald-500/50' : 'bg-red-500/25 text-red-400 border-2 border-red-500/50'}`} style={{ boxShadow: userLocation ? '0 0 40px rgba(16,185,129,0.5)' : '0 4px 24px rgba(0,0,0,0.4)' }}>
-                    <span className="relative flex h-5 w-5">
+                <div className={`px-4 py-2 rounded-xl text-sm font-bold backdrop-blur-xl shadow-xl flex items-center gap-2 ${userLocation ? 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/50' : 'bg-red-500/25 text-red-400 border border-red-500/50'}`}>
+                    <span className="relative flex h-3 w-3">
                         {userLocation && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>}
-                        <span className={`relative inline-flex rounded-full h-5 w-5 ${userLocation ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
+                        <span className={`relative inline-flex rounded-full h-3 w-3 ${userLocation ? 'bg-emerald-400' : 'bg-red-400'}`}></span>
                     </span>
                     {userLocation ? 'GPS Aktif' : 'GPS Off'}
                 </div>
