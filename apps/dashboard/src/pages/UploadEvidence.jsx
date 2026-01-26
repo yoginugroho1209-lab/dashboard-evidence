@@ -79,7 +79,7 @@ const UploadEvidence = () => {
         checkGPS();
     }, []);
 
-    // Get current user and project points on mount
+    // Get current user and project points on mount + Realtime subscription
     useEffect(() => {
         const getUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -91,7 +91,7 @@ const UploadEvidence = () => {
             const { data, error } = await supabase
                 .from('points')
                 .select('*')
-                .limit(100);
+                .limit(500);
 
             if (data && data.length > 0) {
                 setProjectPoints(data.map(p => ({
@@ -112,6 +112,24 @@ const UploadEvidence = () => {
             }
         };
         getPoints();
+
+        // 🔄 REALTIME: Subscribe to points table changes for auto-refresh
+        const pointsSubscription = supabase
+            .channel('points-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'points' },
+                (payload) => {
+                    console.log('🔄 Realtime: Points table changed', payload);
+                    getPoints(); // Re-fetch all points when any change occurs
+                }
+            )
+            .subscribe();
+
+        // Cleanup subscription on unmount
+        return () => {
+            supabase.removeChannel(pointsSubscription);
+        };
     }, []);
 
     // Auto-recalculate matched point when radius changes (after analysis is done)

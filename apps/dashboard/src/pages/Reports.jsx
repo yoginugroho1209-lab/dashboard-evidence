@@ -37,12 +37,29 @@ const Reports = () => {
         setLoading(false);
     };
 
-    // Fetch projects on mount
+    // Fetch projects on mount + Realtime subscription
     useEffect(() => {
         fetchProjects();
+
+        // 🔄 REALTIME: Subscribe to projects table changes
+        const projectsSubscription = supabase
+            .channel('projects-changes')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'projects' },
+                (payload) => {
+                    console.log('🔄 Realtime: Projects changed', payload);
+                    fetchProjects();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(projectsSubscription);
+        };
     }, []);
 
-    // Fetch evidence and points when project changes
+    // Fetch evidence and points when project changes + Realtime subscription
     useEffect(() => {
         if (!selectedProjectId) return;
 
@@ -110,6 +127,36 @@ const Reports = () => {
         };
 
         fetchAllData();
+
+        // 🔄 REALTIME: Subscribe to points and evidence table changes for this project
+        const pointsSubscription = supabase
+            .channel(`points-project-${selectedProjectId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'points', filter: `project_id=eq.${selectedProjectId}` },
+                (payload) => {
+                    console.log('🔄 Realtime: Points changed', payload);
+                    fetchAllData();
+                }
+            )
+            .subscribe();
+
+        const evidenceSubscription = supabase
+            .channel(`evidence-project-${selectedProjectId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'evidence', filter: `project_id=eq.${selectedProjectId}` },
+                (payload) => {
+                    console.log('🔄 Realtime: Evidence changed', payload);
+                    fetchAllData();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(pointsSubscription);
+            supabase.removeChannel(evidenceSubscription);
+        };
     }, [selectedProjectId]);
 
     // Toggle item selection
