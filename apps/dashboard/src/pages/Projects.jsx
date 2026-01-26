@@ -78,7 +78,8 @@ const Projects = () => {
             const nameEl = placemark.getElementsByTagName('name')[0];
             const name = nameEl ? nameEl.textContent : `Point ${i + 1}`;
 
-            // Get coordinates from Point
+            // ONLY process Point placemarks (single coordinates)
+            // Skip LineString (paths/cables) and Polygon (areas) - they are not infrastructure points
             const pointEl = placemark.getElementsByTagName('Point')[0];
             if (pointEl) {
                 const coordsEl = pointEl.getElementsByTagName('coordinates')[0];
@@ -108,58 +109,8 @@ const Projects = () => {
                     }
                 }
             }
-
-            // Check for LineString coordinates (for paths)
-            const lineStringEl = placemark.getElementsByTagName('LineString')[0];
-            if (lineStringEl) {
-                const coordsEl = lineStringEl.getElementsByTagName('coordinates')[0];
-                if (coordsEl) {
-                    const coordsText = coordsEl.textContent.trim();
-                    const coordPairs = coordsText.split(/\s+/);
-                    const infraType = detectInfrastructureType(name);
-                    coordPairs.forEach((pair, j) => {
-                        const [lng, lat, alt] = pair.split(',').map(c => parseFloat(c.trim()));
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            points.push({
-                                point_id: `L-${String(i + 1).padStart(2, '0')}-${String(j + 1).padStart(3, '0')}`,
-                                name: `${name} - Point ${j + 1}`,
-                                latitude: lat,
-                                longitude: lng,
-                                altitude: alt || 0,
-                                status: 'planned',
-                                infraType: infraType,
-                                metadata: {}
-                            });
-                        }
-                    });
-                }
-            }
-
-            // Check for Polygon coordinates
-            const polygonEl = placemark.getElementsByTagName('Polygon')[0];
-            if (polygonEl) {
-                const coordsEl = polygonEl.getElementsByTagName('coordinates')[0];
-                if (coordsEl) {
-                    const coordsText = coordsEl.textContent.trim();
-                    const coordPairs = coordsText.split(/\s+/);
-                    const infraType = detectInfrastructureType(name);
-                    coordPairs.forEach((pair, j) => {
-                        const [lng, lat, alt] = pair.split(',').map(c => parseFloat(c.trim()));
-                        if (!isNaN(lat) && !isNaN(lng)) {
-                            points.push({
-                                point_id: `PG-${String(i + 1).padStart(2, '0')}-${String(j + 1).padStart(3, '0')}`,
-                                name: `${name} - Vertex ${j + 1}`,
-                                latitude: lat,
-                                longitude: lng,
-                                altitude: alt || 0,
-                                status: 'planned',
-                                infraType: infraType,
-                                metadata: {}
-                            });
-                        }
-                    });
-                }
-            }
+            // NOTE: LineString (paths/cables) and Polygon (areas) are intentionally NOT parsed
+            // They are not infrastructure points that need evidence photos
         }
 
         return points;
