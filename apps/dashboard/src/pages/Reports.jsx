@@ -624,37 +624,28 @@ const Reports = () => {
         // Get all placemarks
         const placemarks = xmlDoc.getElementsByTagName('Placemark');
 
-        // Build a lookup map: point name/coordinates -> evidence
+        // Build a lookup map: point name -> evidence (ONLY for points that actually have photos)
+        // Use exact point_id matching to avoid false matches between close coordinates
         const evidenceMap = new Map();
         evidenceList.forEach(item => {
+            // Only include if this point actually has evidence attached
+            const hasEvidence = item.evidence?.length > 0 || item.photo_url;
+            if (!hasEvidence) return; // Skip points without photos
+
             const evidence = item.evidence?.[0] || item;
-            const photoUrl = item.photo_url || evidence.photo_url;
-            if (photoUrl) {
-                // Key by name
-                if (item.name) {
-                    evidenceMap.set(item.name.toLowerCase().trim(), {
-                        photoUrl,
-                        timestamp: evidence.exif_timestamp,
-                        device: evidence.exif_device,
-                        exifLat: evidence.exif_latitude,
-                        exifLng: evidence.exif_longitude,
-                        category: evidence.category,
-                        infraType: evidence.infrastructure_type
-                    });
-                }
-                // Also key by coordinates (for matching)
-                if (item.latitude && item.longitude) {
-                    const coordKey = `${parseFloat(item.latitude).toFixed(5)},${parseFloat(item.longitude).toFixed(5)}`;
-                    evidenceMap.set(coordKey, {
-                        photoUrl,
-                        timestamp: evidence.exif_timestamp,
-                        device: evidence.exif_device,
-                        exifLat: evidence.exif_latitude,
-                        exifLng: evidence.exif_longitude,
-                        category: evidence.category,
-                        infraType: evidence.infrastructure_type
-                    });
-                }
+            const photoUrl = item.photo_url || evidence?.photo_url;
+
+            if (photoUrl && item.name) {
+                // Key by exact name only (not coordinates to avoid close-point matching)
+                evidenceMap.set(item.name.trim(), {
+                    photoUrl,
+                    timestamp: evidence?.exif_timestamp,
+                    device: evidence?.exif_device,
+                    exifLat: evidence?.exif_latitude,
+                    exifLng: evidence?.exif_longitude,
+                    category: evidence?.category,
+                    infraType: evidence?.infrastructure_type
+                });
             }
         });
 
@@ -662,26 +653,13 @@ const Reports = () => {
         for (let i = 0; i < placemarks.length; i++) {
             const placemark = placemarks[i];
 
-            // Get placemark name
+            // Get placemark name (exact match with database point name)
             const nameEl = placemark.getElementsByTagName('name')[0];
-            const name = nameEl ? nameEl.textContent.toLowerCase().trim() : '';
+            const name = nameEl ? nameEl.textContent.trim() : '';
 
-            // Get coordinates
-            let coordKey = '';
-            const pointEl = placemark.getElementsByTagName('Point')[0];
-            if (pointEl) {
-                const coordsEl = pointEl.getElementsByTagName('coordinates')[0];
-                if (coordsEl) {
-                    const coordsText = coordsEl.textContent.trim();
-                    const [lng, lat] = coordsText.split(',').map(c => parseFloat(c.trim()));
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        coordKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
-                    }
-                }
-            }
-
-            // Find matching evidence
-            let evidence = evidenceMap.get(name) || evidenceMap.get(coordKey);
+            // Find matching evidence using exact name match only
+            // This ensures only points with actual photos are matched
+            let evidence = evidenceMap.get(name);
 
             if (evidence) {
                 // Get or create description element
