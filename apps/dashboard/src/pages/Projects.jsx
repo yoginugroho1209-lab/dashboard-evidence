@@ -9,8 +9,6 @@ const Projects = () => {
     const [projectName, setProjectName] = useState('');
     const [region, setRegion] = useState('TREG I Sumatera');
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState('Semua');
-    const [infrastructureType, setInfrastructureType] = useState('Semua');
     const [uploadStatus, setUploadStatus] = useState('idle'); // idle, parsing, saving, done, error
     const [error, setError] = useState(null);
     const [user, setUser] = useState(null);
@@ -61,6 +59,31 @@ const Projects = () => {
         'Lainnya': { icon: 'location_on', color: 'text-gray-400', bg: 'bg-gray-500/20' },
     };
 
+    // Helper to find category from parent folders
+    const getCategoryForPlacemark = (placemark) => {
+        let parent = placemark.parentNode;
+        while (parent) {
+            if (parent.nodeName === 'Folder' || parent.nodeName === 'Document') {
+                // Find <name> direct child
+                let folderName = '';
+                for (let i = 0; i < parent.childNodes.length; i++) {
+                    if (parent.childNodes[i].nodeName === 'name') {
+                        folderName = parent.childNodes[i].textContent;
+                        break;
+                    }
+                }
+
+                if (folderName) {
+                    const lower = folderName.toLowerCase();
+                    if (lower.includes('existing')) return 'Existing';
+                    if (lower.includes('plan')) return 'Plan';
+                }
+            }
+            parent = parent.parentNode;
+        }
+        return 'Existing'; // Default if not found
+    };
+
     // Parse KML content (text) and extract coordinates
     const parseKmlContent = (kmlText) => {
         const parser = new DOMParser();
@@ -96,6 +119,9 @@ const Projects = () => {
                         const description = descEl ? descEl.textContent : '';
                         const metadata = parseDescription(description);
 
+                        // Detect Category from Folder structure
+                        const category = getCategoryForPlacemark(placemark);
+
                         points.push({
                             point_id: `P-${String(i + 1).padStart(4, '0')}`,
                             name: name,
@@ -104,6 +130,7 @@ const Projects = () => {
                             altitude: alt || 0,
                             status: 'planned',
                             infraType: infraType,
+                            category: category,
                             metadata: metadata
                         });
                     }
@@ -222,6 +249,8 @@ const Projects = () => {
                 latitude: p.latitude,
                 longitude: p.longitude,
                 status: p.status,
+                category: p.category,
+                infrastructure_type: p.infraType // Map internal infraType to DB column
             }));
 
             const { error: pointsError } = await supabase
@@ -379,44 +408,7 @@ const Projects = () => {
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
-                                        {/* Category */}
-                                        <div>
-                                            <label className="block text-[10px] uppercase tracking-wider text-[#97c4c0] font-bold mb-2">Kategori</label>
-                                            <div className="relative">
-                                                <select
-                                                    value={category}
-                                                    onChange={(e) => setCategory(e.target.value)}
-                                                    className="w-full bg-[#131416] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
-                                                >
-                                                    <option value="Semua">Semua</option>
-                                                    <option value="Existing">Existing</option>
-                                                    <option value="Plan">Plan</option>
-                                                </select>
-                                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#97c4c0] pointer-events-none text-[18px]">expand_more</span>
-                                            </div>
-                                        </div>
 
-                                        {/* Infrastructure Type */}
-                                        <div>
-                                            <label className="block text-[10px] uppercase tracking-wider text-[#97c4c0] font-bold mb-2">Jenis Infrastruktur</label>
-                                            <div className="relative">
-                                                <select
-                                                    value={infrastructureType}
-                                                    onChange={(e) => setInfrastructureType(e.target.value)}
-                                                    className="w-full bg-[#131416] border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:ring-1 focus:ring-primary focus:border-primary outline-none appearance-none cursor-pointer"
-                                                >
-                                                    <option value="Semua">Semua</option>
-                                                    <option value="ODC">ODC</option>
-                                                    <option value="Tiang">Tiang</option>
-                                                    <option value="ODP">ODP</option>
-                                                    <option value="Kabel">Kabel</option>
-                                                    <option value="Closure">Closure</option>
-                                                </select>
-                                                <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#97c4c0] pointer-events-none text-[18px]">expand_more</span>
-                                            </div>
-                                        </div>
-                                    </div>
 
                                     {/* Description */}
                                     <div>
@@ -458,11 +450,10 @@ const Projects = () => {
                                             <table className="w-full text-sm">
                                                 <thead className="sticky top-0 bg-[#131416]">
                                                     <tr className="text-left text-[#97c4c0] text-xs uppercase tracking-wider">
-                                                        <th className="pb-3 pr-2">Type</th>
+                                                        <th className="pb-3 pr-4">Details</th>
                                                         <th className="pb-3 pr-4">ID</th>
                                                         <th className="pb-3 pr-4">Name</th>
-                                                        <th className="pb-3 pr-4">Latitude</th>
-                                                        <th className="pb-3">Longitude</th>
+                                                        <th className="pb-3 pr-4">Lat/Lng</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -471,15 +462,21 @@ const Projects = () => {
                                                         return (
                                                             <tr key={idx} className="border-t border-white/5 text-white">
                                                                 <td className="py-2 pr-2">
-                                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold ${config.bg} ${config.color}`}>
-                                                                        <span className="material-symbols-outlined text-[12px]">{config.icon}</span>
-                                                                        {point.infraType}
-                                                                    </span>
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold w-fit ${config.bg} ${config.color}`}>
+                                                                            <span className="material-symbols-outlined text-[12px]">{config.icon}</span>
+                                                                            {point.infraType}
+                                                                        </span>
+                                                                        <span className={`text-[10px] px-2 py-0.5 rounded w-fit ${point.category === 'Existing' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                                            {point.category}
+                                                                        </span>
+                                                                    </div>
                                                                 </td>
-                                                                <td className="py-2 pr-4 font-mono text-primary text-xs">{point.point_id}</td>
-                                                                <td className="py-2 pr-4 truncate max-w-[120px] text-xs">{point.name}</td>
-                                                                <td className="py-2 pr-4 font-mono text-xs">{point.latitude.toFixed(6)}</td>
-                                                                <td className="py-2 font-mono text-xs">{point.longitude.toFixed(6)}</td>
+                                                                <td className="py-2 pr-4 font-mono text-primary text-xs align-top">{point.point_id}</td>
+                                                                <td className="py-2 pr-4 truncate max-w-[120px] text-xs align-top">{point.name}</td>
+                                                                <td className="py-2 pr-4 font-mono text-xs align-top text-[#97c4c0]">
+                                                                    {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+                                                                </td>
                                                             </tr>
                                                         );
                                                     })}
@@ -525,7 +522,7 @@ const Projects = () => {
                     )}
                 </button>
             </div>
-        </main>
+        </main >
     )
 }
 

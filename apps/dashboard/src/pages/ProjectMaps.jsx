@@ -34,8 +34,29 @@ const ProjectMaps = () => {
     const panelRef = useRef(null);
 
     useEffect(() => {
-        supabase.from('projects').select('*').is('deleted_at', null).order('created_at', { ascending: false })
-            .then(({ data }) => data && setProjects(data));
+        const fetchProjects = async () => {
+            const { data } = await supabase.from('projects').select('*').is('deleted_at', null).order('created_at', { ascending: false });
+            if (data) setProjects(data);
+        };
+
+        fetchProjects();
+
+        // 🔄 REALTIME: Subscribe to projects table changes
+        const projectsSubscription = supabase
+            .channel('projects-maps')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'projects' },
+                (payload) => {
+                    console.log('🔄 Realtime Map: Projects changed', payload);
+                    fetchProjects();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(projectsSubscription);
+        };
     }, []);
 
     useEffect(() => {
@@ -205,6 +226,7 @@ const ProjectMaps = () => {
 
     useEffect(() => {
         if (!selectedProjectId) { setPoints([]); setPointsWithEvidence(new Set()); clearMarkers(); return; }
+
         const fetch = async () => {
             const [{ data: pts }, { data: evs }] = await Promise.all([
                 supabase.from('points').select('*').eq('project_id', selectedProjectId).order('point_id'),
@@ -220,6 +242,25 @@ const ProjectMaps = () => {
             }
         };
         fetch();
+
+        // 🔄 REALTIME: Subscribe to changes for this project
+        const channel = supabase
+            .channel(`map-project-${selectedProjectId}`)
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'points', filter: `project_id=eq.${selectedProjectId}` },
+                () => { console.log('🔄 Map: Points updated'); fetch(); }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'evidence', filter: `project_id=eq.${selectedProjectId}` },
+                () => { console.log('🔄 Map: Evidence updated'); fetch(); }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
     }, [selectedProjectId]);
 
     const clearMarkers = () => {
