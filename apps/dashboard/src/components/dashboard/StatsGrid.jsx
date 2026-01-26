@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 
 const StatCard = ({ title, value, change, changeText, changeColor, icon, iconColor, bgIconColor, decorativeGlowColor }) => {
     return (
@@ -23,13 +24,70 @@ const StatCard = ({ title, value, change, changeText, changeColor, icon, iconCol
 }
 
 const StatsGrid = () => {
+    const [stats, setStats] = useState({
+        totalPoints: 0,
+        completed: 0,
+        pending: 0
+    });
+
+    const fetchStats = async () => {
+        // Total points (all points)
+        const { count: totalPoints } = await supabase
+            .from('points')
+            .select('*', { count: 'exact', head: true });
+
+        // Completed (points with evidence)
+        const { data: evidenceData } = await supabase
+            .from('evidence')
+            .select('point_id');
+
+        const completedPointIds = new Set(evidenceData?.map(e => e.point_id).filter(Boolean) || []);
+        const completed = completedPointIds.size;
+
+        // Pending (points without evidence)
+        const pending = (totalPoints || 0) - completed;
+
+        setStats({
+            totalPoints: totalPoints || 0,
+            completed,
+            pending: pending > 0 ? pending : 0
+        });
+    };
+
+    useEffect(() => {
+        fetchStats();
+
+        // 🔄 REALTIME: Subscribe to points and evidence changes
+        const channel = supabase
+            .channel('dashboard-stats')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'points' },
+                () => { console.log('🔄 Stats: Points changed'); fetchStats(); }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'evidence' },
+                () => { console.log('🔄 Stats: Evidence changed'); fetchStats(); }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    const completionRate = stats.totalPoints > 0
+        ? Math.round((stats.completed / stats.totalPoints) * 100)
+        : 0;
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
                 title="Total Points"
-                value="245"
+                value={stats.totalPoints.toLocaleString()}
                 change="up"
-                changeText="+12% from last week"
+                changeText="All KML points"
                 changeColor="text-primary"
                 icon="location_on"
                 iconColor="text-primary"
@@ -38,9 +96,9 @@ const StatsGrid = () => {
             />
             <StatCard
                 title="Completed"
-                value="189"
+                value={stats.completed.toLocaleString()}
                 change="check"
-                changeText="98% completion rate"
+                changeText={`${completionRate}% completion rate`}
                 changeColor="text-status-success"
                 icon="task_alt"
                 iconColor="text-status-success"
@@ -48,10 +106,10 @@ const StatsGrid = () => {
                 decorativeGlowColor="status-success"
             />
             <StatCard
-                title="Pending Review"
-                value="56"
+                title="Pending"
+                value={stats.pending.toLocaleString()}
                 change="wait"
-                changeText="Requires attention"
+                changeText="Requires evidence"
                 changeColor="text-status-warning"
                 icon="warning"
                 iconColor="text-status-warning"

@@ -1,19 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 
-const UploadRow = ({ id, location, locationImg, techInitials, techName, techColor, status, statusText, statusIcon, time }) => {
+const UploadRow = ({ id, location, photoUrl, uploaderEmail, status, statusText, statusIcon, time }) => {
     return (
         <tr className="group hover:bg-white/[0.02] transition-colors">
             <td className="py-4 font-medium text-white group-hover:text-primary transition-colors">{id}</td>
             <td className="py-4">
                 <div className="flex items-center gap-2">
-                    <div className="h-8 w-12 rounded bg-cover bg-center" data-location={location} style={{ backgroundImage: `url('${locationImg}')` }}></div>
-                    <span>{location}</span>
+                    {photoUrl ? (
+                        <div className="h-8 w-12 rounded bg-cover bg-center" style={{ backgroundImage: `url('${photoUrl}')` }}></div>
+                    ) : (
+                        <div className="h-8 w-12 rounded bg-gray-700 flex items-center justify-center">
+                            <span className="material-symbols-outlined text-gray-500 text-sm">image</span>
+                        </div>
+                    )}
+                    <span className="truncate max-w-[150px]">{location || 'Unknown Location'}</span>
                 </div>
             </td>
             <td className="py-4">
                 <div className="flex items-center gap-2">
-                    <div className={`flex h-6 w-6 items-center justify-center rounded-full ${techColor} text-[10px] font-bold`}>{techInitials}</div>
-                    <span>{techName}</span>
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary text-[10px] font-bold">
+                        {uploaderEmail ? uploaderEmail.substring(0, 2).toUpperCase() : '??'}
+                    </div>
+                    <span className="truncate max-w-[120px]">{uploaderEmail || 'Unknown'}</span>
                 </div>
             </td>
             <td className="py-4">
@@ -22,17 +31,89 @@ const UploadRow = ({ id, location, locationImg, techInitials, techName, techColo
                     {statusText}
                 </div>
             </td>
-            <td className="py-4 text-right">{time}</td>
+            <td className="py-4 text-right whitespace-nowrap">{time}</td>
         </tr>
     )
 }
 
 const RecentUploads = () => {
+    const [uploads, setUploads] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const fetchRecentUploads = async () => {
+        const { data, error } = await supabase
+            .from('evidence')
+            .select(`
+                id,
+                photo_url,
+                created_at,
+                point_id,
+                points (
+                    point_id,
+                    name
+                )
+            `)
+            .order('created_at', { ascending: false })
+            .limit(10);
+
+        if (data) {
+            // Get uploader info
+            const uploadsWithUser = await Promise.all(
+                data.map(async (item) => {
+                    // Try to get user email from uploaded_by if exists
+                    let uploaderEmail = 'Teknisi';
+
+                    return {
+                        ...item,
+                        uploaderEmail
+                    };
+                })
+            );
+            setUploads(uploadsWithUser);
+        }
+        setLoading(false);
+    };
+
+    const formatTimeAgo = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Baru saja';
+        if (diffMins < 60) return `${diffMins} menit lalu`;
+        if (diffHours < 24) return `${diffHours} jam lalu`;
+        return `${diffDays} hari lalu`;
+    };
+
+    useEffect(() => {
+        fetchRecentUploads();
+
+        // 🔄 REALTIME: Subscribe to evidence changes
+        const channel = supabase
+            .channel('dashboard-recent-uploads')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'evidence' },
+                () => {
+                    console.log('🔄 Recent Uploads: Evidence changed');
+                    fetchRecentUploads();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
     return (
         <div className="flex flex-col gap-4 rounded-xl border border-border-dark bg-surface-dark p-6">
             <div className="flex items-center justify-between">
                 <h3 className="font-heading text-lg font-bold text-white">Recent Uploads</h3>
-                <button className="text-sm font-medium text-primary hover:text-primary/80">View All</button>
+                <a href="/reports" className="text-sm font-medium text-primary hover:text-primary/80">View All</a>
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm text-gray-400">
@@ -40,60 +121,40 @@ const RecentUploads = () => {
                         <tr>
                             <th className="py-3 font-semibold tracking-wider">Evidence ID</th>
                             <th className="py-3 font-semibold tracking-wider">Location</th>
-                            <th className="py-3 font-semibold tracking-wider">Technician</th>
+                            <th className="py-3 font-semibold tracking-wider">Uploader</th>
                             <th className="py-3 font-semibold tracking-wider">Status</th>
                             <th className="py-3 font-semibold tracking-wider text-right">Time</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border-dark">
-                        <UploadRow
-                            id="#TE-2049"
-                            location="Cape Town, CBD"
-                            locationImg="https://lh3.googleusercontent.com/aida-public/AB6AXuBl7VBhpclg6w9CJ2HfmwGx_i58Ca7wy-m4XNPWuMHnmUV3N7lwB5uttAS75qg12S2-lVzJXFNAK7c6kBZXu_CH0RGvv6bhNrYBHGcxYLG0TPNUIel0WaD5xvPF2U3tABWK1AIckZFI50o8iG6wDR_mUiay8oKYFow-Uh8ttsdS3cayRUnn9v5xL1dvuo8Rc-qF5_Vu7_hA39Rdofx34cqpMgqn9QQkX1SkxGaqf1R8akBGJtFgMottMRMQCvIHyjOjfEqQ9Yk6aryI"
-                            techInitials="JD"
-                            techName="John Doe"
-                            techColor="bg-blue-500/20 text-blue-400"
-                            status="verified"
-                            statusText="Verified"
-                            statusIcon="check_circle"
-                            time="25 min ago"
-                        />
-                        <UploadRow
-                            id="#TE-2048"
-                            location="Pretoria, Arcadia"
-                            locationImg="https://lh3.googleusercontent.com/aida-public/AB6AXuDlvBTsTuWMbzUpW6-n_FzrK5Huh8Mm-sql8nAG_q9LSb4vSUpqdgLny6Q0sQ3poQ6PAgdn0dZjZ3wb6_KTp5jO2LQehWHUlkIj1uRcKWiPSUZEDff-m7ECUQQ9NIsfgsV82-JPVl7D39010Ht7ptNbY_Cs85wBYzuLU-qAkq_Ht1_cOm-w3781zZR9hXaZidq0BK7-J3F_cO0IlCmUPFHbLEqTtRZ7-lG0bPs4T0Qmx3mu_ITiL5-CIe5hOuRYKUshobQW0Vcgj0QA"
-                            techInitials="SM"
-                            techName="Sarah M."
-                            techColor="bg-purple-500/20 text-purple-400"
-                            status="review"
-                            statusText="Review Needed"
-                            statusIcon="warning"
-                            time="42 min ago"
-                        />
-                        <UploadRow
-                            id="#TE-2047"
-                            location="Durban, Umhlanga"
-                            locationImg="https://lh3.googleusercontent.com/aida-public/AB6AXuDyV1EygS-FKlaf7jnVenrCjKrmEZ8pLUFUBljZ5kuud09NtGYKmsS0_wOfhwd4sGo5nMEbOt3ng71Kr-5O2pNefPuiLX-E0rAPRmrrnNREMHEk1IrR-qldHnsSiyQmIp8e0Um-gntwxfrT3hvJx7NI2crxc_-bEPb3SWRkhJPmiuE9VYcJAJBKCypeRq77MQhTjzScd9fQ6jVV9QtQZvRPaLOuKf4NwvCabRh4Sj10WrfxyYCX7BLQODH8B9tbrZyqvTwyYNUd7_Di"
-                            techInitials="MK"
-                            techName="Mike K."
-                            techColor="bg-orange-500/20 text-orange-400"
-                            status="verified"
-                            statusText="Verified"
-                            statusIcon="check_circle"
-                            time="1 hr ago"
-                        />
-                        <UploadRow
-                            id="#TE-2046"
-                            location="Johannesburg, Sandton"
-                            locationImg="https://lh3.googleusercontent.com/aida-public/AB6AXuDcdktgkhUo4f_wf_G42XFoQ0PBFyLMPJofHwgCBzYXpFYEpIM-lwWBqIzEZ5BTY5C1e4E1KCCq6SD1kGjUI7bl2ycPSwEjt2eEfs7cvUdtVJ9Z5zcdj1nHXbGX7vLKC5Ed75QjqkU9JbU2-D9NZ_q9gyKgE2GhbxRYtNYeHUcx8s6EGpSQqveJSEeGbfiXqeFrU1sQNInfPUMNcFHnWa5U0retIYs1BOnpJYYKQwoUrDh04oTMrCbEOzaiRiw8fOgAfntKXo70pCuh"
-                            techInitials="TP"
-                            techName="Thabo P."
-                            techColor="bg-teal-500/20 text-teal-400"
-                            status="verified"
-                            statusText="Verified"
-                            statusIcon="check_circle"
-                            time="2 hrs ago"
-                        />
+                        {loading ? (
+                            <tr>
+                                <td colSpan="5" className="py-8 text-center text-gray-500">
+                                    <span className="material-symbols-outlined animate-spin mr-2">progress_activity</span>
+                                    Loading...
+                                </td>
+                            </tr>
+                        ) : uploads.length === 0 ? (
+                            <tr>
+                                <td colSpan="5" className="py-8 text-center text-gray-500">
+                                    Belum ada evidence yang diupload
+                                </td>
+                            </tr>
+                        ) : (
+                            uploads.map((upload, index) => (
+                                <UploadRow
+                                    key={upload.id}
+                                    id={`#EV-${String(index + 1).padStart(4, '0')}`}
+                                    location={upload.points?.name || upload.points?.point_id || 'Point tidak diketahui'}
+                                    photoUrl={upload.photo_url}
+                                    uploaderEmail={upload.uploaderEmail}
+                                    status="verified"
+                                    statusText="Uploaded"
+                                    statusIcon="check_circle"
+                                    time={formatTimeAgo(upload.created_at)}
+                                />
+                            ))
+                        )}
                     </tbody>
                 </table>
             </div>
