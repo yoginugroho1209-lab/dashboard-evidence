@@ -443,17 +443,17 @@ const UploadEvidence = () => {
                             {nearbyPoints.map((point, index) => (
                                 <button
                                     key={point.id || index}
-                                    onClick={() => handleSelectPoint(index)}
+                                    onClick={() => setSelectedPointIndex(index)}
                                     className={`w-full text-left p-4 rounded-xl border-2 transition-all ${selectedPointIndex === index
-                                            ? 'border-primary bg-primary/10'
-                                            : 'border-white/10 bg-white/5 hover:border-primary/50 hover:bg-white/10'
+                                        ? 'border-primary bg-primary/10'
+                                        : 'border-white/10 bg-white/5 hover:border-primary/50 hover:bg-white/10'
                                         }`}
                                 >
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
                                             <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-green-400' :
-                                                    index === 1 ? 'bg-yellow-400' :
-                                                        index === 2 ? 'bg-orange-400' : 'bg-slate-400'
+                                                index === 1 ? 'bg-yellow-400' :
+                                                    index === 2 ? 'bg-orange-400' : 'bg-slate-400'
                                                 }`}></div>
                                             <div>
                                                 <p className="text-white font-medium text-sm truncate max-w-[200px]">
@@ -464,8 +464,8 @@ const UploadEvidence = () => {
                                         </div>
                                         <div className="text-right">
                                             <span className={`text-sm font-bold ${point.distance <= 5 ? 'text-green-400' :
-                                                    point.distance <= 15 ? 'text-yellow-400' :
-                                                        'text-orange-400'
+                                                point.distance <= 15 ? 'text-yellow-400' :
+                                                    'text-orange-400'
                                                 }`}>
                                                 {point.distance}m
                                             </span>
