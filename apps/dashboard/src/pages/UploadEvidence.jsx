@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
-import { extractExifData, findNearestPoint as findNearest } from '../lib/exifService'
+import { extractExifData, findNearestPoint as findNearest, findNearbyPoints } from '../lib/exifService'
 import { detectPoles, drawDetections, loadModel } from '../lib/objectDetection'
 
 const UploadEvidence = () => {
@@ -16,6 +16,12 @@ const UploadEvidence = () => {
     const [gpsStatus, setGpsStatus] = useState('checking'); // checking, enabled, disabled, error
     const [category, setCategory] = useState('Existing'); // Existing, Plan
     const [infrastructureType, setInfrastructureType] = useState('ODC'); // ODC, ODP, Tiang, Kabel, Closure
+
+    // Smart Photo Assignment states
+    const [nearbyPoints, setNearbyPoints] = useState([]); // Multiple points near photo
+    const [showPointSelector, setShowPointSelector] = useState(false); // Show selection modal
+    const [selectedPointIndex, setSelectedPointIndex] = useState(0); // Which nearby point is selected
+
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
@@ -150,6 +156,9 @@ const UploadEvidence = () => {
 
         setUploadStatus('analyzing');
         setSaveStatus(null);
+        setNearbyPoints([]); // Reset nearby points
+        setShowPointSelector(false);
+        setSelectedPointIndex(0);
 
         try {
             // 1. Extract EXIF data from photo
@@ -157,16 +166,44 @@ const UploadEvidence = () => {
             const exifData = await extractExifData(selectedFile);
             console.log('EXIF Data:', exifData);
 
-            // 2. Find nearest KML point based on photo GPS
+            // 2. Find ALL nearby points within radius (Smart Photo Assignment)
             let matchedPoint = { point: null, distance: null, withinRadius: false };
+            let foundNearbyPoints = [];
+
             if (exifData.hasGPS) {
-                matchedPoint = findNearest(
+                foundNearbyPoints = findNearbyPoints(
                     exifData.latitude,
                     exifData.longitude,
                     projectPoints,
                     radiusMeters
                 );
-                console.log('📌 Nearest point:', matchedPoint);
+                console.log('📌 Nearby points found:', foundNearbyPoints.length);
+
+                // Store nearby points for potential selection
+                setNearbyPoints(foundNearbyPoints);
+
+                if (foundNearbyPoints.length === 1) {
+                    // Only 1 point in radius - auto assign (original behavior)
+                    matchedPoint = {
+                        point: foundNearbyPoints[0],
+                        distance: foundNearbyPoints[0].distance.toString(),
+                        withinRadius: true
+                    };
+                    console.log('✅ Auto-assigned to:', matchedPoint.point.name);
+                } else if (foundNearbyPoints.length > 1) {
+                    // Multiple points in radius - show selector
+                    setShowPointSelector(true);
+                    // Default to nearest point (first in sorted array)
+                    matchedPoint = {
+                        point: foundNearbyPoints[0],
+                        distance: foundNearbyPoints[0].distance.toString(),
+                        withinRadius: true
+                    };
+                    console.log('⚠️ Multiple points found! User needs to select.');
+                } else {
+                    // No points in radius
+                    matchedPoint = { point: null, distance: null, withinRadius: false };
+                }
             } else {
                 console.log('⚠️ No GPS data in photo');
             }
@@ -224,6 +261,32 @@ const UploadEvidence = () => {
                 error: error.message
             });
         }
+    };
+
+    // Handle point selection when multiple points are nearby
+    const handleSelectPoint = (index) => {
+        if (nearbyPoints.length === 0 || index >= nearbyPoints.length) return;
+
+        const selectedPoint = nearbyPoints[index];
+        setSelectedPointIndex(index);
+
+        // Update analysis result with selected point
+        setAnalysisResult(prev => ({
+            ...prev,
+            matchedPoint: {
+                point: {
+                    id: selectedPoint.id,
+                    dbId: selectedPoint.dbId,
+                    name: selectedPoint.name,
+                    projectId: selectedPoint.projectId
+                },
+                distance: selectedPoint.distance.toString(),
+                withinRadius: true
+            }
+        }));
+
+        setShowPointSelector(false);
+        console.log('✅ User selected point:', selectedPoint.name);
     };
 
     const handleSaveToReport = async () => {
@@ -352,6 +415,83 @@ const UploadEvidence = () => {
                         <div className="w-16 h-16 mx-auto border-4 border-primary border-t-transparent rounded-full animate-spin mb-6"></div>
                         <h2 className="text-xl font-bold text-white mb-2">Memeriksa GPS...</h2>
                         <p className="text-slate-400 text-sm">Mohon izinkan akses lokasi jika diminta</p>
+                    </div>
+                </div>
+            )}
+
+            {/* Point Selector Modal - Shows when multiple points are nearby */}
+            {showPointSelector && nearbyPoints.length > 1 && (
+                <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="bg-surface-dark border border-border-dark rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
+                        {/* Header */}
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                                <span className="material-symbols-outlined text-yellow-400 text-2xl">pin_drop</span>
+                            </div>
+                            <div>
+                                <h2 className="text-lg font-bold text-white">Beberapa Titik Ditemukan</h2>
+                                <p className="text-slate-400 text-sm">{nearbyPoints.length} titik dalam radius {radiusMeters}m</p>
+                            </div>
+                        </div>
+
+                        <p className="text-sm text-slate-400 mb-4">
+                            Pilih titik mana yang akan diberi foto ini:
+                        </p>
+
+                        {/* Points List */}
+                        <div className="flex-1 overflow-y-auto space-y-2 mb-4">
+                            {nearbyPoints.map((point, index) => (
+                                <button
+                                    key={point.id || index}
+                                    onClick={() => handleSelectPoint(index)}
+                                    className={`w-full text-left p-4 rounded-xl border-2 transition-all ${selectedPointIndex === index
+                                            ? 'border-primary bg-primary/10'
+                                            : 'border-white/10 bg-white/5 hover:border-primary/50 hover:bg-white/10'
+                                        }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-green-400' :
+                                                    index === 1 ? 'bg-yellow-400' :
+                                                        index === 2 ? 'bg-orange-400' : 'bg-slate-400'
+                                                }`}></div>
+                                            <div>
+                                                <p className="text-white font-medium text-sm truncate max-w-[200px]">
+                                                    {point.name || point.id || `Titik ${index + 1}`}
+                                                </p>
+                                                <p className="text-xs text-slate-500">{point.id}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className={`text-sm font-bold ${point.distance <= 5 ? 'text-green-400' :
+                                                    point.distance <= 15 ? 'text-yellow-400' :
+                                                        'text-orange-400'
+                                                }`}>
+                                                {point.distance}m
+                                            </span>
+                                        </div>
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowPointSelector(false);
+                                }}
+                                className="flex-1 py-3 bg-white/10 hover:bg-white/20 text-white font-medium rounded-lg transition-colors"
+                            >
+                                Gunakan Terdekat
+                            </button>
+                            <button
+                                onClick={() => handleSelectPoint(selectedPointIndex)}
+                                className="flex-1 py-3 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg transition-colors"
+                            >
+                                Pilih Ini
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

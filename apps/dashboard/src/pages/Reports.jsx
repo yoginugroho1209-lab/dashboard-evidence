@@ -601,13 +601,126 @@ const Reports = () => {
         return kmlContent;
     };
 
-    const handleDownloadKML = () => {
-        const kmlContent = generateKML();
+    const handleDownloadKML = async () => {
+        const selectedProject = projects.find(p => p.id === selectedProjectId);
+
+        // Check if project has raw_kml_content (original structure)
+        if (selectedProject?.raw_kml_content) {
+            // Use original KML structure and inject photos
+            const kmlContent = generateKMLWithOriginalStructure(selectedProject.raw_kml_content);
+            downloadKMLFile(kmlContent, selectedProject.name);
+        } else {
+            // Fallback to generated KML (old behavior)
+            const kmlContent = generateKML();
+            downloadKMLFile(kmlContent, selectedProject?.name || 'Evidence Report');
+        }
+    };
+
+    // Generate KML using original structure and injecting photos into descriptions
+    const generateKMLWithOriginalStructure = (rawKml) => {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(rawKml, 'text/xml');
+
+        // Get all placemarks
+        const placemarks = xmlDoc.getElementsByTagName('Placemark');
+
+        // Build a lookup map: point name/coordinates -> evidence
+        const evidenceMap = new Map();
+        evidenceList.forEach(item => {
+            const evidence = item.evidence?.[0] || item;
+            const photoUrl = item.photo_url || evidence.photo_url;
+            if (photoUrl) {
+                // Key by name
+                if (item.name) {
+                    evidenceMap.set(item.name.toLowerCase().trim(), {
+                        photoUrl,
+                        timestamp: evidence.exif_timestamp,
+                        device: evidence.exif_device,
+                        exifLat: evidence.exif_latitude,
+                        exifLng: evidence.exif_longitude,
+                        category: evidence.category,
+                        infraType: evidence.infrastructure_type
+                    });
+                }
+                // Also key by coordinates (for matching)
+                if (item.latitude && item.longitude) {
+                    const coordKey = `${parseFloat(item.latitude).toFixed(5)},${parseFloat(item.longitude).toFixed(5)}`;
+                    evidenceMap.set(coordKey, {
+                        photoUrl,
+                        timestamp: evidence.exif_timestamp,
+                        device: evidence.exif_device,
+                        exifLat: evidence.exif_latitude,
+                        exifLng: evidence.exif_longitude,
+                        category: evidence.category,
+                        infraType: evidence.infrastructure_type
+                    });
+                }
+            }
+        });
+
+        // Inject photos into each placemark's description
+        for (let i = 0; i < placemarks.length; i++) {
+            const placemark = placemarks[i];
+
+            // Get placemark name
+            const nameEl = placemark.getElementsByTagName('name')[0];
+            const name = nameEl ? nameEl.textContent.toLowerCase().trim() : '';
+
+            // Get coordinates
+            let coordKey = '';
+            const pointEl = placemark.getElementsByTagName('Point')[0];
+            if (pointEl) {
+                const coordsEl = pointEl.getElementsByTagName('coordinates')[0];
+                if (coordsEl) {
+                    const coordsText = coordsEl.textContent.trim();
+                    const [lng, lat] = coordsText.split(',').map(c => parseFloat(c.trim()));
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        coordKey = `${lat.toFixed(5)},${lng.toFixed(5)}`;
+                    }
+                }
+            }
+
+            // Find matching evidence
+            let evidence = evidenceMap.get(name) || evidenceMap.get(coordKey);
+
+            if (evidence) {
+                // Get or create description element
+                let descEl = placemark.getElementsByTagName('description')[0];
+                if (!descEl) {
+                    descEl = xmlDoc.createElement('description');
+                    placemark.appendChild(descEl);
+                }
+
+                // Build new description with photo
+                const existingDesc = descEl.textContent || '';
+                const photoSection = `
+<![CDATA[
+${existingDesc ? existingDesc + '<br/><br/>' : ''}
+<b>📷 Evidence Photo</b><br/>
+${evidence.timestamp ? `<b>Waktu:</b> ${new Date(evidence.timestamp).toLocaleString()}<br/>` : ''}
+${evidence.device ? `<b>Device:</b> ${evidence.device}<br/>` : ''}
+${evidence.category ? `<b>Kategori:</b> ${evidence.category}<br/>` : ''}
+${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
+<img src="${evidence.photoUrl}" width="300"/>
+]]>`;
+
+                descEl.textContent = '';
+                descEl.innerHTML = photoSection;
+            }
+        }
+
+        // Serialize back to string
+        const serializer = new XMLSerializer();
+        return serializer.serializeToString(xmlDoc);
+    };
+
+    // Helper function to download KML file
+    const downloadKMLFile = (kmlContent, projectName) => {
         const blob = new Blob([kmlContent], { type: 'application/vnd.google-earth.kml+xml' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `evidence_report_${new Date().toISOString().split('T')[0]}.kml`;
+        a.download = `${projectName || 'evidence_report'}_${new Date().toISOString().split('T')[0]}.kml`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

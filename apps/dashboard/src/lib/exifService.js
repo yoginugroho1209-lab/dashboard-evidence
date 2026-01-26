@@ -148,8 +148,45 @@ export const findNearestPoint = (lat, lng, points, radiusMeters = 100) => {
     };
 };
 
+/**
+ * Find ALL points within a specified radius, sorted by distance
+ * Used for smart photo assignment when multiple placemarks are nearby
+ * @param {number} lat - Photo latitude
+ * @param {number} lng - Photo longitude
+ * @param {Array} points - Array of KML points with lat/lng
+ * @param {number} radiusMeters - Maximum distance in meters (default: 100m)
+ * @returns {Array} Array of points with distance, sorted by nearest first
+ */
+export const findNearbyPoints = (lat, lng, points, radiusMeters = 100) => {
+    if (!lat || !lng || !points || points.length === 0) {
+        return [];
+    }
+
+    // Calculate distance for each point
+    const pointsWithDistance = points.map(point => {
+        const distance = calculateDistance(
+            lat, lng,
+            parseFloat(point.latitude || point.lat),
+            parseFloat(point.longitude || point.lng)
+        );
+        return {
+            ...point,
+            distance: parseFloat(distance.toFixed(1)),
+            withinRadius: distance <= radiusMeters
+        };
+    });
+
+    // Filter points within radius and sort by distance
+    const nearbyPoints = pointsWithDistance
+        .filter(p => p.withinRadius)
+        .sort((a, b) => a.distance - b.distance);
+
+    return nearbyPoints;
+};
+
 export default {
     extractExifData,
     calculateDistance,
-    findNearestPoint
+    findNearestPoint,
+    findNearbyPoints
 };

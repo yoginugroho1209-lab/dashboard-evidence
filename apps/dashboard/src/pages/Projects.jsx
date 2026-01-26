@@ -5,6 +5,7 @@ import JSZip from 'jszip'
 const Projects = () => {
     const [kmlFile, setKmlFile] = useState(null);
     const [parsedPoints, setParsedPoints] = useState([]);
+    const [rawKmlContent, setRawKmlContent] = useState(null); // Store original KML for export
     const [projectName, setProjectName] = useState('');
     const [region, setRegion] = useState('TREG I Sumatera');
     const [description, setDescription] = useState('');
@@ -216,6 +217,7 @@ const Projects = () => {
 
             const points = parseKmlContent(kmlContent);
             setParsedPoints(points);
+            setRawKmlContent(kmlContent); // Store raw KML for structure preservation
             setUploadStatus('idle');
 
             // Auto-generate project name from filename if empty
@@ -253,6 +255,7 @@ const Projects = () => {
                         description: description,
                         region: region,
                         user_id: user?.id || null,
+                        raw_kml_content: rawKmlContent, // Store original KML for export
                     }
                 ])
                 .select()
@@ -287,6 +290,7 @@ const Projects = () => {
     const resetForm = () => {
         setKmlFile(null);
         setParsedPoints([]);
+        setRawKmlContent(null);
         setProjectName('');
         setDescription('');
         setUploadStatus('idle');
