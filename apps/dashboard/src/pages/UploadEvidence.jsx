@@ -14,8 +14,6 @@ const UploadEvidence = () => {
     const [modelStatus, setModelStatus] = useState('idle'); // idle, loading, ready, error
     const [radiusMeters, setRadiusMeters] = useState(5); // Default radius 5 meters
     const [gpsStatus, setGpsStatus] = useState('checking'); // checking, enabled, disabled, error
-    const [radiusMeters, setRadiusMeters] = useState(5); // Default radius 5 meters
-    const [gpsStatus, setGpsStatus] = useState('checking'); // checking, enabled, disabled, error
 
     // Smart Photo Assignment states
     const [nearbyPoints, setNearbyPoints] = useState([]); // Multiple points near photo
@@ -362,9 +360,6 @@ const UploadEvidence = () => {
                         exif_device: analysisResult.exif.device,
                         ai_detections: analysisResult.objects,
                         matched_distance_meters: parseFloat(analysisResult.matchedPoint.distance) || null,
-                        point_id: analysisResult.matchedPoint.point?.dbId || null,
-                        project_id: analysisResult.matchedPoint.point?.projectId || null,
-                        uploaded_by: user?.id || null,
                         point_id: analysisResult.matchedPoint.point?.dbId || null,
                         project_id: analysisResult.matchedPoint.point?.projectId || null,
                         uploaded_by: user?.id || null,
