@@ -20,6 +20,10 @@ const UploadEvidence = () => {
     const [showPointSelector, setShowPointSelector] = useState(false); // Show selection modal
     const [selectedPointIndex, setSelectedPointIndex] = useState(0); // Which nearby point is selected
 
+    // Browser GPS capture (more reliable than EXIF for camera capture)
+    const [capturedGPS, setCapturedGPS] = useState(null); // { latitude, longitude, accuracy, timestamp }
+    const [isCapturingGPS, setIsCapturingGPS] = useState(false);
+
     const fileInputRef = useRef(null);
     const canvasRef = useRef(null);
     const imageRef = useRef(null);
@@ -168,7 +172,48 @@ const UploadEvidence = () => {
             setUploadStatus('idle');
             setAnalysisResult(null);
             setSaveStatus(null);
+            // Note: capturedGPS was already set before camera opened
         }
+    };
+
+    // Capture GPS FIRST, then open camera
+    const handleCaptureClick = async () => {
+        setIsCapturingGPS(true);
+        setCapturedGPS(null);
+
+        try {
+            // Get high-accuracy GPS before opening camera
+            const position = await new Promise((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(
+                    resolve,
+                    reject,
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0 // Force fresh GPS reading
+                    }
+                );
+            });
+
+            const gpsData = {
+                latitude: position.coords.latitude,
+                longitude: position.coords.longitude,
+                accuracy: position.coords.accuracy,
+                timestamp: new Date().toISOString()
+            };
+
+            setCapturedGPS(gpsData);
+            console.log('📍 Browser GPS captured:', gpsData);
+
+        } catch (error) {
+            console.warn('⚠️ Could not get browser GPS:', error.message);
+            // Continue anyway, will try EXIF fallback
+        }
+
+        setIsCapturingGPS(false);
+
+        // Now open camera
+        fileInputRef.current?.click();
     };
 
     const handleUpload = async () => {
@@ -186,14 +231,35 @@ const UploadEvidence = () => {
             const exifData = await extractExifData(selectedFile);
             console.log('EXIF Data:', exifData);
 
-            // 2. Find ALL nearby points within radius (Smart Photo Assignment)
+            // 2. Determine GPS coordinates (Browser GPS is priority, EXIF as fallback)
+            let gpsLat = null;
+            let gpsLng = null;
+            let gpsSource = 'none';
+
+            if (capturedGPS && capturedGPS.latitude && capturedGPS.longitude) {
+                // Use browser GPS (captured before camera opened) - most reliable
+                gpsLat = capturedGPS.latitude;
+                gpsLng = capturedGPS.longitude;
+                gpsSource = 'browser';
+                console.log('📍 Using Browser GPS:', gpsLat, gpsLng, `(accuracy: ${capturedGPS.accuracy}m)`);
+            } else if (exifData.hasGPS) {
+                // Fallback to EXIF if browser GPS failed
+                gpsLat = exifData.latitude;
+                gpsLng = exifData.longitude;
+                gpsSource = 'exif';
+                console.log('📍 Using EXIF GPS:', gpsLat, gpsLng);
+            } else {
+                console.log('⚠️ No GPS data available from browser or EXIF');
+            }
+
+            // 3. Find ALL nearby points within radius (Smart Photo Assignment)
             let matchedPoint = { point: null, distance: null, withinRadius: false };
             let foundNearbyPoints = [];
 
-            if (exifData.hasGPS) {
+            if (gpsLat && gpsLng) {
                 foundNearbyPoints = findNearbyPoints(
-                    exifData.latitude,
-                    exifData.longitude,
+                    gpsLat,
+                    gpsLng,
                     projectPoints,
                     radiusMeters
                 );
@@ -225,8 +291,17 @@ const UploadEvidence = () => {
                     matchedPoint = { point: null, distance: null, withinRadius: false };
                 }
             } else {
-                console.log('⚠️ No GPS data in photo');
+                console.log('⚠️ Cannot match points - no GPS coordinates');
             }
+
+            // Update exifData with browser GPS if used (for saving to DB)
+            const finalExifData = {
+                ...exifData,
+                latitude: gpsLat || exifData.latitude,
+                longitude: gpsLng || exifData.longitude,
+                hasGPS: !!(gpsLat && gpsLng),
+                gpsSource: gpsSource
+            };
 
             // 3. Detect poles using AI
             console.log('🤖 Running pole detection...');
@@ -251,12 +326,14 @@ const UploadEvidence = () => {
 
             setAnalysisResult({
                 exif: {
-                    latitude: exifData.latitude,
-                    longitude: exifData.longitude,
-                    timestamp: exifData.timestamp,
-                    device: exifData.device,
-                    hasGPS: exifData.hasGPS,
-                    raw: exifData.raw
+                    latitude: finalExifData.latitude,
+                    longitude: finalExifData.longitude,
+                    timestamp: finalExifData.timestamp,
+                    device: finalExifData.device,
+                    hasGPS: finalExifData.hasGPS,
+                    gpsSource: finalExifData.gpsSource,
+                    accuracy: capturedGPS?.accuracy || null,
+                    raw: finalExifData.raw
                 },
                 matchedPoint: {
                     point: matchedPoint.point ? {
@@ -579,7 +656,7 @@ const UploadEvidence = () => {
 
                     {/* Upload Zone */}
                     <div
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={handleCaptureClick}
                         className={`border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-all min-h-[300px] relative ${previewUrl ? 'border-primary bg-primary/5' : 'border-border-dark hover:border-primary/50 hover:bg-white/5'}`}
                     >
                         <input
@@ -843,8 +920,9 @@ const UploadEvidence = () => {
                 </div>
             </div>
         </div>
-        </main >
+        \u003c / main\u003e
     );
 };
 
 export default UploadEvidence;
+
