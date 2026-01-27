@@ -919,8 +919,7 @@ const UploadEvidence = () => {
                     )}
                 </div>
             </div>
-        </div>
-        \u003c / main\u003e
+        </main>
     );
 };
 
