@@ -124,13 +124,11 @@ const UploadEvidence = () => {
                     category: p.category,
                     infrastructureType: p.infrastructure_type
                 })));
+                console.log(`📌 Loaded ${data.length} points from database`);
             } else {
-                // Use sample points if no data in DB yet
-                setProjectPoints([
-                    { id: 'TK-8821-A', latitude: -6.9175, longitude: 107.6191, name: 'Tiang Fiber Zone A' },
-                    { id: 'TK-8822-B', latitude: -6.9210, longitude: 107.6120, name: 'Box ODP-204' },
-                    { id: 'TK-8825-A', latitude: -6.9312, longitude: 107.6255, name: 'Tiang TK-8825' },
-                ]);
+                // No KML uploaded yet - empty points
+                setProjectPoints([]);
+                console.log('⚠️ No KML points in database');
             }
         };
         getPoints();
