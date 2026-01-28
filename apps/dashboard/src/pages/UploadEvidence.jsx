@@ -238,44 +238,35 @@ const UploadEvidence = () => {
                 console.log('⚠️ No GPS data available from browser or EXIF');
             }
 
-            // 3. Find ALL nearby points within radius (Smart Photo Assignment)
+            // 3. ALWAYS find NEAREST point first (regardless of radius), then check if within radius
             let matchedPoint = { point: null, distance: null, withinRadius: false };
             let foundNearbyPoints = [];
 
-            if (gpsLat && gpsLng) {
-                foundNearbyPoints = findNearbyPoints(
-                    gpsLat,
-                    gpsLng,
-                    projectPoints,
-                    radiusMeters
-                );
-                console.log('📌 Nearby points found:', foundNearbyPoints.length);
+            if (gpsLat && gpsLng && projectPoints.length > 0) {
+                // Use findNearestPoint to ALWAYS get the closest point
+                const nearestResult = findNearest(gpsLat, gpsLng, projectPoints, radiusMeters);
+                console.log('📌 Nearest point found:', nearestResult);
 
-                // Store nearby points for potential selection
+                if (nearestResult.point) {
+                    matchedPoint = {
+                        point: nearestResult.point,
+                        distance: nearestResult.distance,
+                        withinRadius: nearestResult.withinRadius
+                    };
+                    console.log(`📌 Nearest: ${matchedPoint.point.name} at ${matchedPoint.distance}m (${matchedPoint.withinRadius ? 'DALAM' : 'LUAR'} radius ${radiusMeters}m)`);
+                }
+
+                // Also get all nearby points within radius for selection if multiple
+                foundNearbyPoints = findNearbyPoints(gpsLat, gpsLng, projectPoints, radiusMeters);
                 setNearbyPoints(foundNearbyPoints);
 
-                if (foundNearbyPoints.length === 1) {
-                    // Only 1 point in radius - auto assign (original behavior)
-                    matchedPoint = {
-                        point: foundNearbyPoints[0],
-                        distance: foundNearbyPoints[0].distance.toString(),
-                        withinRadius: true
-                    };
-                    console.log('✅ Auto-assigned to:', matchedPoint.point.name);
-                } else if (foundNearbyPoints.length > 1) {
+                if (foundNearbyPoints.length > 1) {
                     // Multiple points in radius - show selector
                     setShowPointSelector(true);
-                    // Default to nearest point (first in sorted array)
-                    matchedPoint = {
-                        point: foundNearbyPoints[0],
-                        distance: foundNearbyPoints[0].distance.toString(),
-                        withinRadius: true
-                    };
-                    console.log('⚠️ Multiple points found! User needs to select.');
-                } else {
-                    // No points in radius
-                    matchedPoint = { point: null, distance: null, withinRadius: false };
+                    console.log('⚠️ Multiple points in radius. User may select.');
                 }
+            } else if (gpsLat && gpsLng) {
+                console.log('⚠️ No project points loaded');
             } else {
                 console.log('⚠️ Cannot match points - no GPS coordinates');
             }
@@ -789,8 +780,8 @@ const UploadEvidence = () => {
                                 onClick={handleSaveToReport}
                                 disabled={saveStatus === 'success' || !analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius}
                                 className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
-                                        (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
-                                            'bg-primary hover:bg-primary/90 text-white'
+                                    (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
+                                        'bg-primary hover:bg-primary/90 text-white'
                                     }`}
                             >
                                 {saveStatus === 'success' ? (
