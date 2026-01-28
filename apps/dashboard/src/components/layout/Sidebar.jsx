@@ -37,10 +37,12 @@ const Sidebar = () => {
                     <span className="material-symbols-outlined">folder_open</span>
                     Projects
                 </NavLink>
+                {/* Project Maps - Hidden for now
                 <NavLink to="/project-maps" className={activeNavClass}>
                     <span className="material-symbols-outlined">map</span>
                     Project Maps
                 </NavLink>
+                */}
                 <NavLink to="/reports" className={activeNavClass}>
                     <span className="material-symbols-outlined">description</span>
                     Reports
