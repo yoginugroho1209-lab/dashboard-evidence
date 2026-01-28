@@ -172,47 +172,54 @@ const UploadEvidence = () => {
             setUploadStatus('idle');
             setAnalysisResult(null);
             setSaveStatus(null);
-            // Note: capturedGPS was already set before camera opened
+            // Note: GPS will be captured immediately after
         }
+
+        // Start GPS capture in background (non-blocking)
+        captureGPSInBackground();
     };
 
-    // Capture GPS FIRST, then open camera
-    const handleCaptureClick = async () => {
-        setIsCapturingGPS(true);
-        setCapturedGPS(null);
-
-        try {
-            // Get high-accuracy GPS before opening camera
-            const position = await new Promise((resolve, reject) => {
-                navigator.geolocation.getCurrentPosition(
-                    resolve,
-                    reject,
-                    {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 0 // Force fresh GPS reading
-                    }
-                );
-            });
-
-            const gpsData = {
-                latitude: position.coords.latitude,
-                longitude: position.coords.longitude,
-                accuracy: position.coords.accuracy,
-                timestamp: new Date().toISOString()
-            };
-
-            setCapturedGPS(gpsData);
-            console.log('📍 Browser GPS captured:', gpsData);
-
-        } catch (error) {
-            console.warn('⚠️ Could not get browser GPS:', error.message);
-            // Continue anyway, will try EXIF fallback
+    // Capture GPS in background (called when file is selected)
+    const captureGPSInBackground = () => {
+        if (!navigator.geolocation) {
+            console.warn('⚠️ Geolocation not available');
+            return;
         }
 
+        setIsCapturingGPS(true);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const gpsData = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                    timestamp: new Date().toISOString()
+                };
+                setCapturedGPS(gpsData);
+                setIsCapturingGPS(false);
+                console.log('📍 Browser GPS captured:', gpsData);
+            },
+            (error) => {
+                console.warn('⚠️ Browser GPS failed:', error.message);
+                setIsCapturingGPS(false);
+                // Will fallback to EXIF during analysis
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 5000, // Reduced timeout
+                maximumAge: 0
+            }
+        );
+    };
+
+    // Simple click handler - just open camera, no waiting
+    const handleCaptureClick = () => {
+        // Reset states
+        setCapturedGPS(null);
         setIsCapturingGPS(false);
 
-        // Now open camera
+        // Open camera/file picker immediately
         fileInputRef.current?.click();
     };
 
