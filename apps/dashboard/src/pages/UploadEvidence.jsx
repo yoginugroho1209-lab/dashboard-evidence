@@ -53,32 +53,50 @@ const UploadEvidence = () => {
         initModel();
     }, []);
 
-    // Check GPS status on mount
+    // Continuous GPS tracking - always know current location
     useEffect(() => {
-        const checkGPS = () => {
-            if (!navigator.geolocation) {
-                setGpsStatus('error');
-                return;
+        if (!navigator.geolocation) {
+            setGpsStatus('error');
+            return;
+        }
+
+        let watchId = null;
+
+        // Start watching position
+        watchId = navigator.geolocation.watchPosition(
+            (position) => {
+                const gpsData = {
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                    accuracy: position.coords.accuracy,
+                    timestamp: new Date().toISOString()
+                };
+                setCapturedGPS(gpsData);
+                setGpsStatus('enabled');
+                console.log('📍 GPS Updated:', gpsData.latitude.toFixed(6), gpsData.longitude.toFixed(6), `(±${gpsData.accuracy.toFixed(0)}m)`);
+            },
+            (error) => {
+                console.warn('⚠️ GPS Watch Error:', error.message);
+                if (error.code === error.PERMISSION_DENIED) {
+                    setGpsStatus('disabled');
+                } else {
+                    setGpsStatus('error');
+                }
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 5000 // Accept position from last 5 seconds
             }
+        );
 
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    console.log('📍 GPS Enabled:', position.coords);
-                    setGpsStatus('enabled');
-                },
-                (error) => {
-                    console.log('⚠️ GPS Error:', error.message);
-                    if (error.code === error.PERMISSION_DENIED) {
-                        setGpsStatus('disabled');
-                    } else {
-                        setGpsStatus('disabled');
-                    }
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
+        // Cleanup on unmount
+        return () => {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                console.log('🛑 GPS Watch stopped');
+            }
         };
-
-        checkGPS();
     }, []);
 
     // Get current user and project points on mount + Realtime subscription
@@ -172,54 +190,15 @@ const UploadEvidence = () => {
             setUploadStatus('idle');
             setAnalysisResult(null);
             setSaveStatus(null);
-            // Note: GPS will be captured immediately after
+            // GPS is already being tracked continuously via watchPosition
+            console.log('📸 Photo selected. Current GPS:', capturedGPS ? `${capturedGPS.latitude.toFixed(6)}, ${capturedGPS.longitude.toFixed(6)}` : 'Not available yet');
         }
-
-        // Start GPS capture in background (non-blocking)
-        captureGPSInBackground();
     };
 
-    // Capture GPS in background (called when file is selected)
-    const captureGPSInBackground = () => {
-        if (!navigator.geolocation) {
-            console.warn('⚠️ Geolocation not available');
-            return;
-        }
-
-        setIsCapturingGPS(true);
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const gpsData = {
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                    accuracy: position.coords.accuracy,
-                    timestamp: new Date().toISOString()
-                };
-                setCapturedGPS(gpsData);
-                setIsCapturingGPS(false);
-                console.log('📍 Browser GPS captured:', gpsData);
-            },
-            (error) => {
-                console.warn('⚠️ Browser GPS failed:', error.message);
-                setIsCapturingGPS(false);
-                // Will fallback to EXIF during analysis
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 5000, // Reduced timeout
-                maximumAge: 0
-            }
-        );
-    };
-
-    // Simple click handler - just open camera, no waiting
+    // Simple click handler - just open camera
     const handleCaptureClick = () => {
-        // Reset states
-        setCapturedGPS(null);
-        setIsCapturingGPS(false);
-
         // Open camera/file picker immediately
+        // GPS is already being tracked continuously
         fileInputRef.current?.click();
     };
 
