@@ -706,11 +706,110 @@ const UploadEvidence = () => {
                             )}
                         </button>
                     </div>
+
+                    {/* Mobile Only: Inline Analysis Results - Only shown AFTER clicking Upload & Analisis */}
+                    {(uploadStatus === 'done' && analysisResult) && (
+                        <div className="lg:hidden mt-4 flex flex-col gap-3">
+                            {/* EXIF Section */}
+                            <div className="p-4 rounded-lg bg-surface-dark border border-border-dark">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-[16px]">location_on</span>
+                                        Koordinat EXIF
+                                    </span>
+                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${analysisResult.exif.hasGPS ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                        {analysisResult.exif.hasGPS ? (analysisResult.exif.gpsSource === 'browser' ? 'GPS Browser' : 'EXIF') : 'No GPS'}
+                                    </span>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div><span className="text-slate-500">Lat:</span> <span className="text-white">{analysisResult.exif.latitude?.toFixed(6) || '-'}</span></div>
+                                    <div><span className="text-slate-500">Lng:</span> <span className="text-white">{analysisResult.exif.longitude?.toFixed(6) || '-'}</span></div>
+                                    <div><span className="text-slate-500">Time:</span> <span className="text-white text-xs">{analysisResult.exif.timestamp || '-'}</span></div>
+                                    <div><span className="text-slate-500">Device:</span> <span className="text-white text-xs">{analysisResult.exif.device || '-'}</span></div>
+                                </div>
+                            </div>
+
+                            {/* KML Point Section */}
+                            <div className={`p-4 rounded-lg border ${analysisResult.matchedPoint.withinRadius ? 'bg-green-500/10 border-green-500/30' : 'bg-yellow-500/10 border-yellow-500/30'}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-[16px]">pin_drop</span>
+                                        Titik KML Terdekat
+                                    </span>
+                                    {analysisResult.matchedPoint.withinRadius ? (
+                                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-green-500/20 text-green-400">Dalam Radius</span>
+                                    ) : (
+                                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400">Luar Radius</span>
+                                    )}
+                                </div>
+                                {analysisResult.matchedPoint.point ? (
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-white font-medium">{analysisResult.matchedPoint.point.name}</p>
+                                            <p className="text-xs text-slate-500">{analysisResult.matchedPoint.point.id}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className={`text-lg font-bold ${analysisResult.matchedPoint.withinRadius ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                {analysisResult.matchedPoint.distance}m
+                                            </span>
+                                            <p className="text-[10px] text-slate-500">dari titik</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-500 text-sm">Tidak ada titik KML dalam radius</p>
+                                )}
+                            </div>
+
+                            {/* AI Detection Section */}
+                            <div className="p-4 rounded-lg bg-surface-dark border border-border-dark">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
+                                        <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+                                        Deteksi AI (Tiang)
+                                    </span>
+                                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                                        {analysisResult.objects.length} objek
+                                    </span>
+                                </div>
+                                {analysisResult.objects.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2">
+                                        {analysisResult.objects.map((obj, i) => (
+                                            <span key={i} className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
+                                                {obj.label || obj.class} ({(obj.confidence * 100).toFixed(0)}%)
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="text-slate-500 text-sm">Tidak ada tiang terdeteksi</p>
+                                )}
+                            </div>
+
+                            {/* Save Button for Mobile */}
+                            <button
+                                onClick={handleSaveToReport}
+                                disabled={saveStatus === 'success' || !analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius}
+                                className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
+                                        (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
+                                            'bg-primary hover:bg-primary/90 text-white'
+                                    }`}
+                            >
+                                {saveStatus === 'success' ? (
+                                    <><span className="material-symbols-outlined text-[18px]">check</span> Tersimpan</>
+                                ) : !analysisResult.exif.hasGPS ? (
+                                    <><span className="material-symbols-outlined text-[18px]">gps_off</span> GPS Required</>
+                                ) : !analysisResult.matchedPoint.withinRadius ? (
+                                    <><span className="material-symbols-outlined text-[18px]">wrong_location</span> Diluar Radius ({radiusMeters}m)</>
+                                ) : (
+                                    <><span className="material-symbols-outlined text-[18px]">save</span> Simpan ke Report</>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* Right: Analysis Results */}
-            <div className="w-full lg:w-1/2 flex flex-col gap-6">
+            {/* Right: Analysis Results - Hidden on mobile, shown on desktop */}
+            <div className="hidden lg:flex w-1/2 flex-col gap-6">
                 <div className="bg-surface-dark border border-border-dark rounded-lg p-6 flex flex-col gap-4 flex-1">
                     <div className="flex items-center gap-2 text-primary mb-2">
                         <span className="material-symbols-outlined text-[20px]">analytics</span>
