@@ -4,10 +4,21 @@ import { supabase } from '../lib/supabase'
 
 const Login = () => {
     const navigate = useNavigate();
-    const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+
+    // Hardcoded Credential Mapping
+    const CREDENTIAL_MAP = {
+        'admin': {
+            email: 'yoginugroho1209@gmail.com',
+            // Backend password stays same as user input for simplicity or can be mapped
+        },
+        'user': {
+            email: 'zarabetajrjr@gmail.com',
+        }
+    };
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -15,9 +26,16 @@ const Login = () => {
         setError(null);
 
         try {
+            // 1. Check if input matches a mapped username
+            const mappedCreds = CREDENTIAL_MAP[username.toLowerCase()];
+
+            // Determine email to use: mapped email OR original input (if they typed email directly)
+            const emailToUse = mappedCreds ? mappedCreds.email : username;
+
+            // 2. Attempt login with Supabase
             const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
+                email: emailToUse,
+                password: password,
             });
 
             if (error) throw error;
@@ -25,7 +43,9 @@ const Login = () => {
             navigate('/');
         } catch (error) {
             console.error('Login error:', error);
-            if (error.message === 'Failed to fetch') {
+            if (error.message === 'Invalid login credentials') {
+                setError('Invalid username or password');
+            } else if (error.message === 'Failed to fetch') {
                 setError('Connection failed. Please check your internet connection or try again later.');
             } else {
                 setError(error.message);
@@ -65,18 +85,19 @@ const Login = () => {
                     {/* Form */}
                     <form className="space-y-5" onSubmit={handleLogin}>
                         <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Email Address</label>
+                            <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Username</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
-                                    <span className="material-symbols-outlined text-[20px]">mail</span>
+                                    <span className="material-symbols-outlined text-[20px]">person</span>
                                 </div>
                                 <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
                                     className="w-full bg-input-bg border border-border-dark text-white text-sm rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-slate-600 transition-colors"
-                                    placeholder="name@telkom.co.id"
+                                    placeholder="Enter username"
                                     required
+                                    autoComplete="username"
                                 />
                             </div>
                         </div>
@@ -84,7 +105,6 @@ const Login = () => {
                         <div>
                             <div className="flex justify-between mb-2">
                                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">Password</label>
-                                <Link to="/forgot-password" className="text-xs text-primary hover:text-primary/80 transition-colors">Forgot Password?</Link>
                             </div>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
@@ -95,8 +115,9 @@ const Login = () => {
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="w-full bg-input-bg border border-border-dark text-white text-sm rounded-lg pl-10 pr-4 py-3 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-slate-600 transition-colors"
-                                    placeholder="Enter your password"
+                                    placeholder="Enter password"
                                     required
+                                    autoComplete="current-password"
                                 />
                             </div>
                         </div>
@@ -120,12 +141,15 @@ const Login = () => {
                         </button>
                     </form>
 
+                    {/* Hidden Register Link (Commented out per request to limit access) */}
+                    {/* 
                     <div className="mt-6 pt-6 border-t border-border-dark text-center">
                         <p className="text-slate-400 text-sm">
                             Don't have an account?{' '}
                             <Link to="/register" className="text-white hover:text-primary font-medium transition-colors">Sign up</Link>
                         </p>
-                    </div>
+                    </div> 
+                    */}
                 </div>
 
                 {/* Footer info */}
