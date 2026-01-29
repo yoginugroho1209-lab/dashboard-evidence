@@ -601,9 +601,9 @@ const UploadEvidence = () => {
             </header>
 
             {/* Content */}
-            <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 overflow-auto">
+            <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 overflow-auto">
                 {/* Left: Upload Area */}
-                <div className="w-full lg:flex-1 flex flex-col gap-6">
+                <div className="flex flex-col gap-6">
                     <div className="bg-surface-dark border border-border-dark rounded-lg p-6 flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-primary">
@@ -795,202 +795,202 @@ const UploadEvidence = () => {
                         </div>
                     )}
                 </div>
-            </div>
 
-            {/* Right: Analysis Results - Hidden on mobile, shown on desktop */}
-            <div className="hidden lg:flex lg:flex-1 flex-col gap-6">
-                <div className="bg-surface-dark border border-border-dark rounded-lg p-6 flex flex-col gap-4 flex-1">
-                    <div className="flex items-center gap-2 text-primary mb-2">
-                        <span className="material-symbols-outlined text-[20px]">analytics</span>
-                        <span className="text-xs font-bold uppercase tracking-widest">Analysis Result</span>
-                    </div>
-
-                    {uploadStatus === 'idle' && !analysisResult && (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
-                            <span className="material-symbols-outlined text-[48px] mb-4 opacity-30">image_search</span>
-                            <p>Upload foto untuk melihat hasil analisis</p>
+                {/* Right: Analysis Results - Hidden on mobile, shown on desktop */}
+                <div className="hidden lg:flex flex-col gap-6">
+                    <div className="bg-surface-dark border border-border-dark rounded-lg p-6 flex flex-col gap-4 flex-1">
+                        <div className="flex items-center gap-2 text-primary mb-2">
+                            <span className="material-symbols-outlined text-[20px]">analytics</span>
+                            <span className="text-xs font-bold uppercase tracking-widest">Analysis Result</span>
                         </div>
-                    )}
 
-                    {uploadStatus === 'analyzing' && (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-                            <div className="w-16 h-16 rounded-full border-4 border-primary border-t-transparent animate-spin mb-4"></div>
-                            <p className="font-medium">Menganalisis Foto...</p>
-                            <p className="text-sm text-slate-500 mt-1">Membaca EXIF, mencocokkan koordinat, deteksi tiang</p>
-                        </div>
-                    )}
+                        {uploadStatus === 'idle' && !analysisResult && (
+                            <div className="flex-1 flex flex-col items-center justify-center text-slate-500">
+                                <span className="material-symbols-outlined text-[48px] mb-4 opacity-30">image_search</span>
+                                <p>Upload foto untuk melihat hasil analisis</p>
+                            </div>
+                        )}
 
-                    {uploadStatus === 'saving' && (
-                        <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
-                            <div className="w-16 h-16 rounded-full border-4 border-green-500 border-t-transparent animate-spin mb-4"></div>
-                            <p className="font-medium">Menyimpan ke Database...</p>
-                        </div>
-                    )}
+                        {uploadStatus === 'analyzing' && (
+                            <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+                                <div className="w-16 h-16 rounded-full border-4 border-primary border-t-transparent animate-spin mb-4"></div>
+                                <p className="font-medium">Menganalisis Foto...</p>
+                                <p className="text-sm text-slate-500 mt-1">Membaca EXIF, mencocokkan koordinat, deteksi tiang</p>
+                            </div>
+                        )}
 
-                    {(uploadStatus === 'done' && analysisResult) && (
-                        <div className="flex flex-col gap-4 overflow-auto">
-                            {/* Save Status Messages */}
-                            {saveStatus === 'success' && (
-                                <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                                    Evidence berhasil disimpan ke database!
-                                </div>
-                            )}
-                            {saveStatus === 'error' && (
-                                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
-                                    <span className="material-symbols-outlined text-[18px]">error</span>
-                                    Gagal menyimpan. Pastikan Anda sudah login.
-                                </div>
-                            )}
+                        {uploadStatus === 'saving' && (
+                            <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+                                <div className="w-16 h-16 rounded-full border-4 border-green-500 border-t-transparent animate-spin mb-4"></div>
+                                <p className="font-medium">Menyimpan ke Database...</p>
+                            </div>
+                        )}
 
-                            {/* EXIF Data */}
-                            <div className={`bg-[#1c1e20] border rounded-lg p-4 ${analysisResult.exif.hasGPS ? 'border-border-dark' : 'border-yellow-500/30'}`}>
-                                <div className="flex items-center gap-2 text-slate-300 mb-3">
-                                    <span className="material-symbols-outlined text-[18px]">location_on</span>
-                                    <span className="text-sm font-bold uppercase tracking-wide">Koordinat EXIF</span>
-                                    {!analysisResult.exif.hasGPS && (
-                                        <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">No GPS</span>
-                                    )}
-                                </div>
-                                {analysisResult.exif.hasGPS ? (
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div>
-                                            <p className="text-slate-500 text-xs">Latitude</p>
-                                            <p className="text-white font-mono">{analysisResult.exif.latitude?.toFixed(6)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-slate-500 text-xs">Longitude</p>
-                                            <p className="text-white font-mono">{analysisResult.exif.longitude?.toFixed(6)}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-slate-500 text-xs">Timestamp</p>
-                                            <p className="text-white font-mono text-xs">{new Date(analysisResult.exif.timestamp).toLocaleString()}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-slate-500 text-xs">Device</p>
-                                            <p className="text-white">{analysisResult.exif.device}</p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="mt-2">
-                                        <p className="text-yellow-400 text-sm mb-2">⚠️ Foto tidak memiliki data GPS. Pastikan lokasi diaktifkan saat mengambil foto.</p>
-                                        <details className="text-xs text-slate-500 bg-black/20 p-2 rounded">
-                                            <summary className="cursor-pointer hover:text-white">Debug: Raw EXIF Data ({Object.keys(analysisResult.exif.raw || {}).length} keys)</summary>
-                                            <pre className="mt-2 text-[10px] overflow-auto max-h-40 font-mono text-slate-400">
-                                                {JSON.stringify(analysisResult.exif.raw, null, 2)}
-                                            </pre>
-                                        </details>
+                        {(uploadStatus === 'done' && analysisResult) && (
+                            <div className="flex flex-col gap-4 overflow-auto">
+                                {/* Save Status Messages */}
+                                {saveStatus === 'success' && (
+                                    <div className="p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-sm flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                                        Evidence berhasil disimpan ke database!
                                     </div>
                                 )}
-                            </div>
+                                {saveStatus === 'error' && (
+                                    <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+                                        <span className="material-symbols-outlined text-[18px]">error</span>
+                                        Gagal menyimpan. Pastikan Anda sudah login.
+                                    </div>
+                                )}
 
-                            {/* Matched Point */}
-                            <div className={`border rounded-lg p-4 ${analysisResult.matchedPoint.withinRadius
-                                ? 'bg-green-500/10 border-green-500/20'
-                                : analysisResult.matchedPoint.point
-                                    ? 'bg-yellow-500/10 border-yellow-500/20'
-                                    : 'bg-red-500/10 border-red-500/20'
-                                }`}>
-                                <div className={`flex items-center gap-2 mb-3 ${analysisResult.matchedPoint.withinRadius ? 'text-green-500' :
-                                    analysisResult.matchedPoint.point ? 'text-yellow-500' : 'text-red-500'
+                                {/* EXIF Data */}
+                                <div className={`bg-[#1c1e20] border rounded-lg p-4 ${analysisResult.exif.hasGPS ? 'border-border-dark' : 'border-yellow-500/30'}`}>
+                                    <div className="flex items-center gap-2 text-slate-300 mb-3">
+                                        <span className="material-symbols-outlined text-[18px]">location_on</span>
+                                        <span className="text-sm font-bold uppercase tracking-wide">Koordinat EXIF</span>
+                                        {!analysisResult.exif.hasGPS && (
+                                            <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">No GPS</span>
+                                        )}
+                                    </div>
+                                    {analysisResult.exif.hasGPS ? (
+                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                            <div>
+                                                <p className="text-slate-500 text-xs">Latitude</p>
+                                                <p className="text-white font-mono">{analysisResult.exif.latitude?.toFixed(6)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-500 text-xs">Longitude</p>
+                                                <p className="text-white font-mono">{analysisResult.exif.longitude?.toFixed(6)}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-500 text-xs">Timestamp</p>
+                                                <p className="text-white font-mono text-xs">{new Date(analysisResult.exif.timestamp).toLocaleString()}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-slate-500 text-xs">Device</p>
+                                                <p className="text-white">{analysisResult.exif.device}</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="mt-2">
+                                            <p className="text-yellow-400 text-sm mb-2">⚠️ Foto tidak memiliki data GPS. Pastikan lokasi diaktifkan saat mengambil foto.</p>
+                                            <details className="text-xs text-slate-500 bg-black/20 p-2 rounded">
+                                                <summary className="cursor-pointer hover:text-white">Debug: Raw EXIF Data ({Object.keys(analysisResult.exif.raw || {}).length} keys)</summary>
+                                                <pre className="mt-2 text-[10px] overflow-auto max-h-40 font-mono text-slate-400">
+                                                    {JSON.stringify(analysisResult.exif.raw, null, 2)}
+                                                </pre>
+                                            </details>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Matched Point */}
+                                <div className={`border rounded-lg p-4 ${analysisResult.matchedPoint.withinRadius
+                                    ? 'bg-green-500/10 border-green-500/20'
+                                    : analysisResult.matchedPoint.point
+                                        ? 'bg-yellow-500/10 border-yellow-500/20'
+                                        : 'bg-red-500/10 border-red-500/20'
                                     }`}>
-                                    <span className="material-symbols-outlined text-[18px]">
-                                        {analysisResult.matchedPoint.withinRadius ? 'check_circle' :
-                                            analysisResult.matchedPoint.point ? 'warning' : 'error'}
-                                    </span>
-                                    <span className="text-sm font-bold uppercase tracking-wide">Titik KML Terdekat</span>
-                                    {!analysisResult.matchedPoint.withinRadius && analysisResult.matchedPoint.point && (
-                                        <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">Di luar radius</span>
+                                    <div className={`flex items-center gap-2 mb-3 ${analysisResult.matchedPoint.withinRadius ? 'text-green-500' :
+                                        analysisResult.matchedPoint.point ? 'text-yellow-500' : 'text-red-500'
+                                        }`}>
+                                        <span className="material-symbols-outlined text-[18px]">
+                                            {analysisResult.matchedPoint.withinRadius ? 'check_circle' :
+                                                analysisResult.matchedPoint.point ? 'warning' : 'error'}
+                                        </span>
+                                        <span className="text-sm font-bold uppercase tracking-wide">Titik KML Terdekat</span>
+                                        {!analysisResult.matchedPoint.withinRadius && analysisResult.matchedPoint.point && (
+                                            <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">Di luar radius</span>
+                                        )}
+                                    </div>
+                                    {analysisResult.matchedPoint.point ? (
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <p className="text-white font-bold text-lg">{analysisResult.matchedPoint.point.id}</p>
+                                                <p className="text-slate-400 text-sm mb-1">{analysisResult.matchedPoint.point.name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${analysisResult.matchedPoint.point.category === 'Existing' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                        {analysisResult.matchedPoint.point.category || 'Existing'}
+                                                    </span>
+                                                    <span className="text-xs text-slate-500">•</span>
+                                                    <span className="text-xs text-slate-400">
+                                                        {analysisResult.matchedPoint.point.infrastructureType || 'Unknown'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className={`font-mono text-lg ${analysisResult.matchedPoint.withinRadius ? 'text-green-400' : 'text-yellow-400'}`}>
+                                                    {analysisResult.matchedPoint.distance}m
+                                                </p>
+                                                <p className="text-slate-500 text-xs">jarak dari titik (max {radiusMeters}m)</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <p className="text-red-400 text-sm">❌ Tidak ada titik KML dalam radius. Upload file KML terlebih dahulu.</p>
                                     )}
                                 </div>
-                                {analysisResult.matchedPoint.point ? (
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <p className="text-white font-bold text-lg">{analysisResult.matchedPoint.point.id}</p>
-                                            <p className="text-slate-400 text-sm mb-1">{analysisResult.matchedPoint.point.name}</p>
-                                            <div className="flex items-center gap-2">
-                                                <span className={`text-xs px-2 py-0.5 rounded font-medium ${analysisResult.matchedPoint.point.category === 'Existing' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'}`}>
-                                                    {analysisResult.matchedPoint.point.category || 'Existing'}
-                                                </span>
-                                                <span className="text-xs text-slate-500">•</span>
-                                                <span className="text-xs text-slate-400">
-                                                    {analysisResult.matchedPoint.point.infrastructureType || 'Unknown'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className={`font-mono text-lg ${analysisResult.matchedPoint.withinRadius ? 'text-green-400' : 'text-yellow-400'}`}>
-                                                {analysisResult.matchedPoint.distance}m
-                                            </p>
-                                            <p className="text-slate-500 text-xs">jarak dari titik (max {radiusMeters}m)</p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className="text-red-400 text-sm">❌ Tidak ada titik KML dalam radius. Upload file KML terlebih dahulu.</p>
-                                )}
-                            </div>
 
-                            {/* AI Detection */}
-                            <div className="bg-[#1c1e20] border border-border-dark rounded-lg p-4">
-                                <div className="flex items-center gap-2 text-purple-400 mb-3">
-                                    <span className="material-symbols-outlined text-[18px]">smart_toy</span>
-                                    <span className="text-sm font-bold uppercase tracking-wide">Deteksi AI (Tiang)</span>
-                                    <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded">
-                                        {analysisResult.objects.length} objek
-                                    </span>
+                                {/* AI Detection */}
+                                <div className="bg-[#1c1e20] border border-border-dark rounded-lg p-4">
+                                    <div className="flex items-center gap-2 text-purple-400 mb-3">
+                                        <span className="material-symbols-outlined text-[18px]">smart_toy</span>
+                                        <span className="text-sm font-bold uppercase tracking-wide">Deteksi AI (Tiang)</span>
+                                        <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded">
+                                            {analysisResult.objects.length} objek
+                                        </span>
+                                    </div>
+                                    {analysisResult.objects.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {analysisResult.objects.map((obj, idx) => (
+                                                <div key={idx} className="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2 flex items-center gap-2">
+                                                    <span className="text-purple-400 font-medium">{obj.label}</span>
+                                                    <span className="text-xs text-purple-300 bg-purple-500/20 px-1.5 py-0.5 rounded">{(obj.confidence * 100).toFixed(0)}%</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-slate-500 text-sm">Tidak terdeteksi tiang listrik dalam foto.</p>
+                                    )}
                                 </div>
-                                {analysisResult.objects.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2">
-                                        {analysisResult.objects.map((obj, idx) => (
-                                            <div key={idx} className="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2 flex items-center gap-2">
-                                                <span className="text-purple-400 font-medium">{obj.label}</span>
-                                                <span className="text-xs text-purple-300 bg-purple-500/20 px-1.5 py-0.5 rounded">{(obj.confidence * 100).toFixed(0)}%</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <p className="text-slate-500 text-sm">Tidak terdeteksi tiang listrik dalam foto.</p>
-                                )}
-                            </div>
 
-                            {/* Save to Report Button */}
-                            <button
-                                onClick={handleSaveToReport}
-                                disabled={
-                                    saveStatus === 'success' ||
-                                    uploadStatus === 'saving' ||
-                                    !analysisResult.exif.hasGPS ||
-                                    !analysisResult.matchedPoint.withinRadius
-                                }
-                                className={`mt-2 w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
-                                    (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
-                                        'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
-                                    }`}
-                            >
-                                {saveStatus === 'success' ? (
-                                    <>
-                                        <span className="material-symbols-outlined text-[18px]">check</span>
-                                        Tersimpan
-                                    </>
-                                ) : !analysisResult.exif.hasGPS ? (
-                                    <>
-                                        <span className="material-symbols-outlined text-[18px]">gps_off</span>
-                                        GPS Required
-                                    </>
-                                ) : !analysisResult.matchedPoint.withinRadius ? (
-                                    <>
-                                        <span className="material-symbols-outlined text-[18px]">wrong_location</span>
-                                        Diluar Radius ({radiusMeters}m)
-                                    </>
-                                ) : (
-                                    <>
-                                        <span className="material-symbols-outlined text-[18px]">save</span>
-                                        Simpan ke Report
-                                    </>
-                                )}
-                            </button>
-                        </div>
-                    )}
+                                {/* Save to Report Button */}
+                                <button
+                                    onClick={handleSaveToReport}
+                                    disabled={
+                                        saveStatus === 'success' ||
+                                        uploadStatus === 'saving' ||
+                                        !analysisResult.exif.hasGPS ||
+                                        !analysisResult.matchedPoint.withinRadius
+                                    }
+                                    className={`mt-2 w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
+                                        (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
+                                            'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
+                                        }`}
+                                >
+                                    {saveStatus === 'success' ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">check</span>
+                                            Tersimpan
+                                        </>
+                                    ) : !analysisResult.exif.hasGPS ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">gps_off</span>
+                                            GPS Required
+                                        </>
+                                    ) : !analysisResult.matchedPoint.withinRadius ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">wrong_location</span>
+                                            Diluar Radius ({radiusMeters}m)
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">save</span>
+                                            Simpan ke Report
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </main>
