@@ -9,7 +9,7 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null)
-    const [userRole, setUserRole] = useState(null)
+    const [userRole, setUserRole] = useState('teknisi') // Default to teknisi
     const [loading, setLoading] = useState(true)
 
     // Fetch user role from user_roles table
@@ -27,33 +27,37 @@ export const AuthProvider = ({ children }) => {
             if (error) {
                 console.warn('Could not fetch user role:', error.message)
                 // Default to teknisi if no role found
-                setUserRole('teknisi')
-                return
+                return 'teknisi'
             }
 
-            const role = data?.role || 'teknisi'
-            console.log('Setting user role to:', role)
-            setUserRole(role)
+            return data?.role || 'teknisi'
         } catch (err) {
             console.error('Error fetching user role:', err)
-            setUserRole('teknisi')
+            return 'teknisi'
         }
     }
 
     useEffect(() => {
         // Check active sessions and sets the user
         const getSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            const currentUser = session?.user ?? null
-            setUser(currentUser)
+            try {
+                const { data: { session } } = await supabase.auth.getSession()
+                const currentUser = session?.user ?? null
+                setUser(currentUser)
 
-            if (currentUser) {
-                await fetchUserRole(currentUser.id)
-            } else {
-                setUserRole(null)
+                if (currentUser) {
+                    const role = await fetchUserRole(currentUser.id)
+                    setUserRole(role)
+                } else {
+                    setUserRole('teknisi')
+                }
+            } catch (err) {
+                console.error('Error getting session:', err)
+                setUserRole('teknisi')
+            } finally {
+                // Always set loading to false
+                setLoading(false)
             }
-
-            setLoading(false)
         }
 
         getSession()
@@ -64,9 +68,10 @@ export const AuthProvider = ({ children }) => {
             setUser(currentUser)
 
             if (currentUser) {
-                await fetchUserRole(currentUser.id)
+                const role = await fetchUserRole(currentUser.id)
+                setUserRole(role)
             } else {
-                setUserRole(null)
+                setUserRole('teknisi')
             }
 
             setLoading(false)
@@ -78,11 +83,13 @@ export const AuthProvider = ({ children }) => {
     const signOut = async () => {
         await supabase.auth.signOut()
         setUser(null)
-        setUserRole(null)
+        setUserRole('teknisi')
     }
 
     // Computed value for admin check
     const isAdmin = userRole === 'admin'
+
+    console.log('AuthContext state:', { user: user?.email, userRole, isAdmin, loading })
 
     const value = {
         user,
@@ -100,4 +107,5 @@ export const AuthProvider = ({ children }) => {
 }
 
 export default AuthContext
+
 
