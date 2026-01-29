@@ -603,7 +603,7 @@ const UploadEvidence = () => {
             {/* Content */}
             <div className="flex-1 flex flex-col lg:flex-row gap-6 p-6 overflow-auto">
                 {/* Left: Upload Area */}
-                <div className="w-full lg:w-1/2 flex flex-col gap-6">
+                <div className="w-full lg:flex-1 flex flex-col gap-6">
                     <div className="bg-surface-dark border border-border-dark rounded-lg p-6 flex flex-col gap-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-primary">
@@ -798,7 +798,7 @@ const UploadEvidence = () => {
             </div>
 
             {/* Right: Analysis Results - Hidden on mobile, shown on desktop */}
-            <div className="hidden lg:flex w-1/2 flex-col gap-6">
+            <div className="hidden lg:flex lg:flex-1 flex-col gap-6">
                 <div className="bg-surface-dark border border-border-dark rounded-lg p-6 flex flex-col gap-4 flex-1">
                     <div className="flex items-center gap-2 text-primary mb-2">
                         <span className="material-symbols-outlined text-[20px]">analytics</span>
