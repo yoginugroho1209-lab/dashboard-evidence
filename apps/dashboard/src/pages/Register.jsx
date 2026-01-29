@@ -50,8 +50,23 @@ const Register = () => {
             return;
         }
 
-        // If successful, also create technician profile
+        // If successful, create user role as teknisi
         if (data.user) {
+            // Insert role into user_roles table (default: teknisi)
+            const { error: roleError } = await supabase
+                .from('user_roles')
+                .insert([
+                    {
+                        user_id: data.user.id,
+                        role: 'teknisi',
+                    }
+                ]);
+
+            if (roleError) {
+                console.warn('Could not create user role:', roleError.message);
+            }
+
+            // Also create technician profile for backward compatibility
             const { error: profileError } = await supabase
                 .from('technicians')
                 .insert([

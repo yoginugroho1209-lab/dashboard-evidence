@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+import AdminRoute from './components/AdminRoute'
 import Sidebar from './components/layout/Sidebar'
 import Dashboard from './pages/Dashboard'
 import MapView from './pages/MapView'
@@ -40,14 +41,17 @@ function App() {
                         <Route path="/forgot-password" element={<ForgotPassword />} />
                         <Route path="/update-password" element={<UpdatePassword />} />
 
-                        {/* Protected routes */}
+                        {/* Protected route - accessible by all authenticated users (teknisi & admin) */}
                         <Route path="/" element={<ProtectedRoute><UploadEvidence /></ProtectedRoute>} />
-                        <Route path="/map" element={<ProtectedRoute><MapView /></ProtectedRoute>} />
-                        <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
-                        <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-                        <Route path="/technicians" element={<ProtectedRoute><Technicians /></ProtectedRoute>} />
                         <Route path="/upload-evidence" element={<ProtectedRoute><UploadEvidence /></ProtectedRoute>} />
-                        <Route path="/project-maps" element={<ProtectedRoute><ProjectMaps /></ProtectedRoute>} />
+
+                        {/* Admin-only routes */}
+                        <Route path="/dashboard" element={<AdminRoute><Dashboard /></AdminRoute>} />
+                        <Route path="/map" element={<AdminRoute><MapView /></AdminRoute>} />
+                        <Route path="/projects" element={<AdminRoute><Projects /></AdminRoute>} />
+                        <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+                        <Route path="/technicians" element={<AdminRoute><Technicians /></AdminRoute>} />
+                        <Route path="/project-maps" element={<AdminRoute><ProjectMaps /></AdminRoute>} />
                     </Routes>
                 </Layout>
             </Router>
@@ -56,3 +60,4 @@ function App() {
 }
 
 export default App
+
