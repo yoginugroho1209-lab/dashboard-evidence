@@ -3,38 +3,26 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext({})
 
+// ==========================================
+// DAFTAR EMAIL ADMIN - Tambahkan email admin di sini
+// ==========================================
+const ADMIN_EMAILS = [
+    'yoginugroho1209@gmail.com',
+    // Tambahkan email admin lainnya di sini
+]
+
 export const useAuth = () => {
     return useContext(AuthContext)
 }
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null)
-    const [userRole, setUserRole] = useState('teknisi') // Default to teknisi
     const [loading, setLoading] = useState(true)
 
-    // Fetch user role from user_roles table
-    const fetchUserRole = async (userId) => {
-        try {
-            console.log('Fetching role for user:', userId)
-            const { data, error } = await supabase
-                .from('user_roles')
-                .select('role')
-                .eq('user_id', userId)
-                .single()
-
-            console.log('Role fetch result:', { data, error })
-
-            if (error) {
-                console.warn('Could not fetch user role:', error.message)
-                // Default to teknisi if no role found
-                return 'teknisi'
-            }
-
-            return data?.role || 'teknisi'
-        } catch (err) {
-            console.error('Error fetching user role:', err)
-            return 'teknisi'
-        }
+    // Check if user email is in admin list
+    const checkIsAdmin = (email) => {
+        if (!email) return false
+        return ADMIN_EMAILS.includes(email.toLowerCase())
     }
 
     useEffect(() => {
@@ -42,20 +30,10 @@ export const AuthProvider = ({ children }) => {
         const getSession = async () => {
             try {
                 const { data: { session } } = await supabase.auth.getSession()
-                const currentUser = session?.user ?? null
-                setUser(currentUser)
-
-                if (currentUser) {
-                    const role = await fetchUserRole(currentUser.id)
-                    setUserRole(role)
-                } else {
-                    setUserRole('teknisi')
-                }
+                setUser(session?.user ?? null)
             } catch (err) {
                 console.error('Error getting session:', err)
-                setUserRole('teknisi')
             } finally {
-                // Always set loading to false
                 setLoading(false)
             }
         }
@@ -63,17 +41,8 @@ export const AuthProvider = ({ children }) => {
         getSession()
 
         // Listen for changes on auth state (login, logout, etc.)
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-            const currentUser = session?.user ?? null
-            setUser(currentUser)
-
-            if (currentUser) {
-                const role = await fetchUserRole(currentUser.id)
-                setUserRole(role)
-            } else {
-                setUserRole('teknisi')
-            }
-
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null)
             setLoading(false)
         })
 
@@ -83,13 +52,11 @@ export const AuthProvider = ({ children }) => {
     const signOut = async () => {
         await supabase.auth.signOut()
         setUser(null)
-        setUserRole('teknisi')
     }
 
-    // Computed value for admin check
-    const isAdmin = userRole === 'admin'
-
-    console.log('AuthContext state:', { user: user?.email, userRole, isAdmin, loading })
+    // Computed values based on user email
+    const isAdmin = checkIsAdmin(user?.email)
+    const userRole = isAdmin ? 'admin' : 'teknisi'
 
     const value = {
         user,
@@ -107,5 +74,6 @@ export const AuthProvider = ({ children }) => {
 }
 
 export default AuthContext
+
 
 
