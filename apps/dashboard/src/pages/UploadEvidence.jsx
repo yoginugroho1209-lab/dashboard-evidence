@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { extractExifData, findNearestPoint as findNearest, findNearbyPoints } from '../lib/exifService'
 import { detectPoles, drawDetections, loadModel } from '../lib/objectDetection'
+import { applyWatermark } from '../lib/watermarkService'
 
 const UploadEvidence = () => {
     const [selectedFile, setSelectedFile] = useState(null);
@@ -383,14 +384,34 @@ const UploadEvidence = () => {
         setUploadStatus('saving');
 
         try {
-            // 1. Upload photo to Supabase Storage
-            const fileExt = selectedFile.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+            // 1. Apply watermark to photo
+            console.log('🖼️ Applying watermark...');
+            let fileToUpload = selectedFile;
+            let fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+
+            if (imageRef.current) {
+                try {
+                    const watermarkedBlob = await applyWatermark(imageRef.current, {
+                        exif: analysisResult.exif,
+                        matchedPoint: analysisResult.matchedPoint,
+                        objects: analysisResult.objects,
+                        radius: radiusMeters
+                    });
+                    fileToUpload = watermarkedBlob;
+                    console.log('✅ Watermark applied successfully');
+                } catch (wmError) {
+                    console.warn('⚠️ Watermark failed, uploading original:', wmError);
+                    // Continue with original file if watermark fails
+                }
+            }
+
             const filePath = `uploads/${fileName}`;
 
             const { data: uploadData, error: uploadError } = await supabase.storage
                 .from('evidence')
-                .upload(filePath, selectedFile);
+                .upload(filePath, fileToUpload, {
+                    contentType: 'image/jpeg'
+                });
 
             if (uploadError) throw uploadError;
 
