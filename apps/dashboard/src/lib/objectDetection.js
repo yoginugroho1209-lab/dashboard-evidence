@@ -106,7 +106,7 @@ const preprocessImage = (imageElement) => {
 /**
  * Post-process YOLOv8 output
  */
-const postprocess = (output, preprocessInfo, confidenceThreshold = 0.25, iouThreshold = 0.45) => {
+const postprocess = (output, preprocessInfo, confidenceThreshold = 0.5, iouThreshold = 0.45) => {
     const { scale, offsetX, offsetY, originalWidth, originalHeight } = preprocessInfo;
 
     // YOLOv8 output shape: [1, 5, 8400] where 5 = x, y, w, h, confidence
