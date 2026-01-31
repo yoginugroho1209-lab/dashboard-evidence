@@ -60,10 +60,16 @@ const preprocessImage = (imageElement) => {
     canvas.width = targetSize;
     canvas.height = targetSize;
 
+    // Use naturalWidth/naturalHeight for original image dimensions
+    const origWidth = imageElement.naturalWidth || imageElement.width;
+    const origHeight = imageElement.naturalHeight || imageElement.height;
+
+    console.log('📐 Original image size:', origWidth, 'x', origHeight);
+
     // Calculate scaling to maintain aspect ratio
-    const scale = Math.min(targetSize / imageElement.width, targetSize / imageElement.height);
-    const scaledWidth = imageElement.width * scale;
-    const scaledHeight = imageElement.height * scale;
+    const scale = Math.min(targetSize / origWidth, targetSize / origHeight);
+    const scaledWidth = origWidth * scale;
+    const scaledHeight = origHeight * scale;
     const offsetX = (targetSize - scaledWidth) / 2;
     const offsetY = (targetSize - scaledHeight) / 2;
 
@@ -98,8 +104,8 @@ const preprocessImage = (imageElement) => {
         scale,
         offsetX,
         offsetY,
-        originalWidth: imageElement.width,
-        originalHeight: imageElement.height
+        originalWidth: origWidth,
+        originalHeight: origHeight
     };
 };
 
