@@ -1,60 +1,45 @@
 /**
- * Object Detection Service using TensorFlow.js
- * Detects poles (tiang listrik) in uploaded images
+ * Object Detection Service using Custom YOLOv8 ONNX Model
+ * Detects poles (tiang) in uploaded images
  */
 
-import * as tf from '@tensorflow/tfjs';
+import * as ort from 'onnxruntime-web';
 
-// COCO dataset class index for common objects we care about
-const COCO_CLASSES = {
-    0: 'person',
-    1: 'bicycle',
-    2: 'car',
-    3: 'motorcycle',
-    5: 'bus',
-    7: 'truck',
-    // COCO doesn't have "pole" directly, but we can detect:
-    // - traffic light (9) often on poles
-    // - stop sign (11) often on poles  
-    // - fire hydrant (10) near poles
-    9: 'traffic_light',
-    10: 'fire_hydrant',
-    11: 'stop_sign',
-};
-
-// For pole detection, we'll use a custom approach since COCO doesn't have pole class
-// We'll detect vertical structures and classify them as potential poles
-
-let model = null;
+let session = null;
 let isModelLoading = false;
 
+// Class names from your training
+const CLASS_NAMES = ['tiang'];
+
 /**
- * Load the COCO-SSD model for object detection
+ * Load the custom ONNX model
  */
 export const loadModel = async () => {
-    if (model) return model;
+    if (session) return session;
     if (isModelLoading) {
-        // Wait for model to load
         while (isModelLoading) {
             await new Promise(resolve => setTimeout(resolve, 100));
         }
-        return model;
+        return session;
     }
 
     isModelLoading = true;
     try {
-        // Use TensorFlow.js COCO-SSD model (lightweight, good for browser)
-        // Note: For production, you'd want to use a custom-trained YOLOv8 model
-        await tf.ready();
+        console.log('🔄 Loading custom tiang detection model...');
 
-        // Load COCO-SSD from TensorFlow Hub
-        const cocoSsd = await import('@tensorflow-models/coco-ssd');
-        model = await cocoSsd.load({
-            base: 'lite_mobilenet_v2' // Lighter model for faster inference
+        // Configure ONNX Runtime
+        ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/';
+
+        session = await ort.InferenceSession.create('/models/tiang_model.onnx', {
+            executionProviders: ['wasm'],
+            graphOptimizationLevel: 'all'
         });
 
-        console.log('✅ Object detection model loaded');
-        return model;
+        console.log('✅ Custom model loaded successfully!');
+        console.log('Input names:', session.inputNames);
+        console.log('Output names:', session.outputNames);
+
+        return session;
     } catch (error) {
         console.error('❌ Failed to load model:', error);
         throw error;
@@ -64,287 +49,201 @@ export const loadModel = async () => {
 };
 
 /**
- * Detect objects in an image using COCO-SSD
- * @param {HTMLImageElement} imageElement - The image to analyze
- * @returns {Array} Array of detected objects with bounding boxes
+ * Preprocess image for YOLOv8 (resize to 640x640, normalize)
  */
-export const detectObjects = async (imageElement) => {
-    try {
-        const loadedModel = await loadModel();
-        const predictions = await loadedModel.detect(imageElement);
+const preprocessImage = (imageElement) => {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
 
-        // Transform predictions to our format
-        return predictions.map(pred => ({
-            label: pred.class,
-            confidence: pred.score,
-            bbox: {
-                x: pred.bbox[0],
-                y: pred.bbox[1],
-                w: pred.bbox[2],
-                h: pred.bbox[3]
-            }
-        }));
-    } catch (error) {
-        console.error('Detection error:', error);
-        return [];
+    const targetSize = 640;
+    canvas.width = targetSize;
+    canvas.height = targetSize;
+
+    // Calculate scaling to maintain aspect ratio
+    const scale = Math.min(targetSize / imageElement.width, targetSize / imageElement.height);
+    const scaledWidth = imageElement.width * scale;
+    const scaledHeight = imageElement.height * scale;
+    const offsetX = (targetSize - scaledWidth) / 2;
+    const offsetY = (targetSize - scaledHeight) / 2;
+
+    // Fill with gray (letterbox)
+    ctx.fillStyle = '#808080';
+    ctx.fillRect(0, 0, targetSize, targetSize);
+
+    // Draw image centered
+    ctx.drawImage(imageElement, offsetX, offsetY, scaledWidth, scaledHeight);
+
+    // Get image data
+    const imageData = ctx.getImageData(0, 0, targetSize, targetSize);
+    const data = imageData.data;
+
+    // Convert to float32 tensor [1, 3, 640, 640] with normalization
+    const float32Data = new Float32Array(1 * 3 * targetSize * targetSize);
+
+    for (let y = 0; y < targetSize; y++) {
+        for (let x = 0; x < targetSize; x++) {
+            const idx = (y * targetSize + x) * 4;
+            const outIdx = y * targetSize + x;
+
+            // RGB channels, normalized to 0-1
+            float32Data[0 * targetSize * targetSize + outIdx] = data[idx] / 255.0;     // R
+            float32Data[1 * targetSize * targetSize + outIdx] = data[idx + 1] / 255.0; // G
+            float32Data[2 * targetSize * targetSize + outIdx] = data[idx + 2] / 255.0; // B
+        }
     }
+
+    return {
+        tensor: new ort.Tensor('float32', float32Data, [1, 3, targetSize, targetSize]),
+        scale,
+        offsetX,
+        offsetY,
+        originalWidth: imageElement.width,
+        originalHeight: imageElement.height
+    };
 };
 
 /**
- * Detect poles in an image using edge detection and vertical line analysis
- * This is a simple heuristic approach for pole detection
- * @param {HTMLImageElement} imageElement - The image to analyze
- * @returns {Array} Array of detected poles
+ * Post-process YOLOv8 output
+ */
+const postprocess = (output, preprocessInfo, confidenceThreshold = 0.25, iouThreshold = 0.45) => {
+    const { scale, offsetX, offsetY, originalWidth, originalHeight } = preprocessInfo;
+
+    // YOLOv8 output shape: [1, 5, 8400] where 5 = x, y, w, h, confidence
+    // Or [1, 84, 8400] for 80 classes
+    const data = output.data;
+    const [batch, numFeatures, numBoxes] = output.dims;
+
+    const detections = [];
+    const numClasses = numFeatures - 4; // First 4 are x, y, w, h
+
+    for (let i = 0; i < numBoxes; i++) {
+        // Get box coordinates
+        const x = data[0 * numBoxes + i];
+        const y = data[1 * numBoxes + i];
+        const w = data[2 * numBoxes + i];
+        const h = data[3 * numBoxes + i];
+
+        // Get class confidences
+        let maxConf = 0;
+        let maxClassIdx = 0;
+
+        for (let c = 0; c < numClasses; c++) {
+            const conf = data[(4 + c) * numBoxes + i];
+            if (conf > maxConf) {
+                maxConf = conf;
+                maxClassIdx = c;
+            }
+        }
+
+        if (maxConf > confidenceThreshold) {
+            // Convert from center format to corner format
+            const x1 = x - w / 2;
+            const y1 = y - h / 2;
+            const x2 = x + w / 2;
+            const y2 = y + h / 2;
+
+            // Transform back to original image coordinates
+            const origX1 = (x1 - offsetX) / scale;
+            const origY1 = (y1 - offsetY) / scale;
+            const origX2 = (x2 - offsetX) / scale;
+            const origY2 = (y2 - offsetY) / scale;
+
+            detections.push({
+                label: CLASS_NAMES[maxClassIdx] || 'tiang',
+                confidence: maxConf,
+                bbox: {
+                    x: Math.max(0, origX1),
+                    y: Math.max(0, origY1),
+                    w: Math.min(origX2 - origX1, originalWidth - origX1),
+                    h: Math.min(origY2 - origY1, originalHeight - origY1)
+                }
+            });
+        }
+    }
+
+    // Apply Non-Maximum Suppression (NMS)
+    return applyNMS(detections, iouThreshold);
+};
+
+/**
+ * Non-Maximum Suppression
+ */
+const applyNMS = (detections, iouThreshold) => {
+    if (detections.length === 0) return [];
+
+    // Sort by confidence
+    detections.sort((a, b) => b.confidence - a.confidence);
+
+    const kept = [];
+    const suppressed = new Set();
+
+    for (let i = 0; i < detections.length; i++) {
+        if (suppressed.has(i)) continue;
+
+        kept.push(detections[i]);
+
+        for (let j = i + 1; j < detections.length; j++) {
+            if (suppressed.has(j)) continue;
+
+            const iou = calculateIoU(detections[i].bbox, detections[j].bbox);
+            if (iou > iouThreshold) {
+                suppressed.add(j);
+            }
+        }
+    }
+
+    return kept;
+};
+
+/**
+ * Calculate Intersection over Union
+ */
+const calculateIoU = (box1, box2) => {
+    const x1 = Math.max(box1.x, box2.x);
+    const y1 = Math.max(box1.y, box2.y);
+    const x2 = Math.min(box1.x + box1.w, box2.x + box2.w);
+    const y2 = Math.min(box1.y + box1.h, box2.y + box2.h);
+
+    const intersection = Math.max(0, x2 - x1) * Math.max(0, y2 - y1);
+    const area1 = box1.w * box1.h;
+    const area2 = box2.w * box2.h;
+    const union = area1 + area2 - intersection;
+
+    return intersection / union;
+};
+
+/**
+ * Detect poles in an image using custom YOLOv8 model
  */
 export const detectPoles = async (imageElement) => {
     try {
-        console.log('Starting pole detection...');
+        console.log('🔍 Starting pole detection with custom model...');
         const startTime = Date.now();
 
-        // Run both detections in parallel
-        // 1. COCO-SSD (AI Model) - might be slow due to network/loading
-        const cocoPromise = new Promise(async (resolve) => {
-            try {
-                // Add 5s timeout for AI detection
-                const aiTimeout = new Promise(r => setTimeout(() => r(null), 5000));
-                const detection = detectObjects(imageElement);
-                const result = await Promise.race([detection, aiTimeout]);
+        // Load model if not loaded
+        const model = await loadModel();
 
-                if (!result) {
-                    console.warn('AI detection timed out, skipping...');
-                    resolve([]);
-                } else {
-                    resolve(result);
-                }
-            } catch (e) {
-                console.warn('AI detection failed:', e);
-                resolve([]);
-            }
-        });
+        // Preprocess image
+        const preprocessInfo = preprocessImage(imageElement);
 
-        // 2. Heuristic Analysis (Canvas/Edge Detection) - fast & local
-        const heuristicPromise = analyzeForPoles(imageElement);
+        // Run inference
+        const feeds = { [model.inputNames[0]]: preprocessInfo.tensor };
+        const results = await model.run(feeds);
 
-        // Wait for both
-        const [cocoDetections, poleDetections] = await Promise.all([
-            cocoPromise,
-            heuristicPromise
-        ]);
+        // Get output
+        const output = results[model.outputNames[0]];
 
-        console.log(`Detection finished in ${Date.now() - startTime}ms`);
-        console.log('COCO detections:', cocoDetections);
-        console.log('Heuristic pole detections:', poleDetections);
+        // Postprocess
+        const detections = postprocess(output, preprocessInfo);
 
-        // Combine results
-        const allDetections = [
-            ...poleDetections,
-            ...cocoDetections.filter(d =>
-                ['traffic_light', 'stop_sign', 'fire_hydrant'].includes(d.label)
-            )
-        ];
+        console.log(`✅ Detection completed in ${Date.now() - startTime}ms`);
+        console.log(`📦 Found ${detections.length} tiang`);
 
-        // Fallback: if no detection and image looks like it has vertical structures
-        if (allDetections.length === 0) {
-            console.log('⚠️ No detections found, trying simple color variance analysis...');
-            const simpleDetection = await simpleVerticalDetection(imageElement);
-            if (simpleDetection) {
-                allDetections.push(simpleDetection);
-            }
-        }
-
-        console.log('Final detections:', allDetections);
-        return allDetections;
+        return detections;
     } catch (error) {
-        console.error('Pole detection error:', error);
+        console.error('❌ Pole detection error:', error);
         return [];
     }
-};
-
-/**
- * Simple fallback detection - analyzes image for any vertical dark structures
- * This is used when the main heuristic doesn't detect anything
- */
-const simpleVerticalDetection = async (imageElement) => {
-    return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-
-        // Scale down for fast processing
-        const maxSize = 200;
-        const scale = Math.min(maxSize / imageElement.width, maxSize / imageElement.height, 1);
-        canvas.width = imageElement.width * scale;
-        canvas.height = imageElement.height * scale;
-
-        ctx.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
-
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-        const width = canvas.width;
-        const height = canvas.height;
-
-        // Find darkest vertical column (likely to be a pole)
-        let darkestColumn = -1;
-        let darkestValue = 255;
-
-        for (let x = Math.floor(width * 0.2); x < Math.floor(width * 0.8); x++) {
-            let columnSum = 0;
-            let count = 0;
-
-            for (let y = 0; y < height; y++) {
-                const idx = (y * width + x) * 4;
-                const gray = (data[idx] * 0.299 + data[idx + 1] * 0.587 + data[idx + 2] * 0.114);
-                columnSum += gray;
-                count++;
-            }
-
-            const avgBrightness = columnSum / count;
-            if (avgBrightness < darkestValue) {
-                darkestValue = avgBrightness;
-                darkestColumn = x;
-            }
-        }
-
-        // If we found a notably dark column (potential pole)
-        if (darkestColumn > 0 && darkestValue < 150) {
-            console.log(`Found potential pole at column ${darkestColumn} with brightness ${darkestValue}`);
-            resolve({
-                label: 'Struktur Vertikal',
-                confidence: 0.5 + (0.3 * (1 - darkestValue / 150)), // Higher confidence for darker
-                bbox: {
-                    x: (darkestColumn / scale) - 20,
-                    y: 0,
-                    w: 40,
-                    h: imageElement.height
-                }
-            });
-        } else {
-            console.log('No vertical structures detected in fallback');
-            resolve(null);
-        }
-    });
-};
-
-/**
- * Analyze image for vertical structures (poles)
- * Uses edge detection to find vertical lines
- */
-const analyzeForPoles = async (imageElement) => {
-    return new Promise((resolve) => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-
-        // Scale down for faster processing
-        const maxSize = 300;
-        const scale = Math.min(maxSize / imageElement.width, maxSize / imageElement.height, 1);
-        canvas.width = imageElement.width * scale;
-        canvas.height = imageElement.height * scale;
-
-        ctx.drawImage(imageElement, 0, 0, canvas.width, canvas.height);
-
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const data = imageData.data;
-
-        // Convert to grayscale and detect edges
-        const width = canvas.width;
-        const height = canvas.height;
-        const grayData = new Uint8Array(width * height);
-
-        for (let i = 0; i < data.length; i += 4) {
-            const gray = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-            grayData[i / 4] = gray;
-        }
-
-        // Simple vertical edge detection
-        const poles = [];
-        const verticalLines = [];
-
-        // Scan for vertical edges
-        for (let x = 1; x < width - 1; x++) {
-            let lineStart = -1;
-            let lineLength = 0;
-
-            for (let y = 1; y < height - 1; y++) {
-                const idx = y * width + x;
-                const left = grayData[idx - 1];
-                const right = grayData[idx + 1];
-                const diff = Math.abs(left - right);
-
-                // Horizontal gradient indicates vertical edge (lowered threshold for better detection)
-                if (diff > 15) {
-                    if (lineStart === -1) lineStart = y;
-                    lineLength++;
-                } else {
-                    // End of line segment
-                    if (lineLength > height * 0.15) { // Line must be at least 15% of image height (relaxed)
-                        verticalLines.push({
-                            x: x / scale,
-                            yStart: lineStart / scale,
-                            yEnd: (lineStart + lineLength) / scale,
-                            length: lineLength / scale
-                        });
-                    }
-                    lineStart = -1;
-                    lineLength = 0;
-                }
-            }
-        }
-
-        // Cluster nearby vertical lines as poles
-        const clustered = clusterVerticalLines(verticalLines);
-
-        clustered.forEach((cluster, idx) => {
-            if (cluster.length > 0) {
-                const avgX = cluster.reduce((sum, l) => sum + l.x, 0) / cluster.length;
-                const minY = Math.min(...cluster.map(l => l.yStart));
-                const maxY = Math.max(...cluster.map(l => l.yEnd));
-
-                poles.push({
-                    label: 'Tiang Listrik',
-                    confidence: Math.min(0.7 + cluster.length * 0.05, 0.95),
-                    bbox: {
-                        x: avgX - 15,
-                        y: minY,
-                        w: 30,
-                        h: maxY - minY
-                    }
-                });
-            }
-        });
-
-        resolve(poles.slice(0, 5)); // Max 5 poles per image
-    });
-};
-
-/**
- * Cluster nearby vertical lines
- */
-const clusterVerticalLines = (lines, threshold = 20) => {
-    if (lines.length === 0) return [];
-
-    const clusters = [];
-    const used = new Set();
-
-    lines.forEach((line, i) => {
-        if (used.has(i)) return;
-
-        const cluster = [line];
-        used.add(i);
-
-        lines.forEach((other, j) => {
-            if (i !== j && !used.has(j)) {
-                if (Math.abs(line.x - other.x) < threshold) {
-                    cluster.push(other);
-                    used.add(j);
-                }
-            }
-        });
-
-        if (cluster.length >= 1) { // At least 1 vertical line to consider as pole (relaxed)
-            clusters.push(cluster);
-        }
-    });
-
-    return clusters;
 };
 
 /**
@@ -356,7 +255,7 @@ export const drawDetections = (canvas, detections) => {
     detections.forEach(det => {
         const { bbox, label, confidence } = det;
 
-        // Draw bounding box
+        // Draw bounding box (green)
         ctx.strokeStyle = '#00FF00';
         ctx.lineWidth = 3;
         ctx.strokeRect(bbox.x, bbox.y, bbox.w, bbox.h);
@@ -364,19 +263,18 @@ export const drawDetections = (canvas, detections) => {
         // Draw label background
         ctx.fillStyle = '#00FF00';
         const text = `${label} ${(confidence * 100).toFixed(0)}%`;
+        ctx.font = 'bold 16px Arial';
         const textMetrics = ctx.measureText(text);
-        ctx.fillRect(bbox.x, bbox.y - 25, textMetrics.width + 10, 25);
+        ctx.fillRect(bbox.x, bbox.y - 28, textMetrics.width + 12, 28);
 
         // Draw label text
         ctx.fillStyle = '#000000';
-        ctx.font = 'bold 14px Arial';
-        ctx.fillText(text, bbox.x + 5, bbox.y - 7);
+        ctx.fillText(text, bbox.x + 6, bbox.y - 8);
     });
 };
 
 export default {
     loadModel,
-    detectObjects,
     detectPoles,
     drawDetections
 };
