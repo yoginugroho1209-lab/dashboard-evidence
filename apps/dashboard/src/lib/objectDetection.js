@@ -112,51 +112,91 @@ const postprocess = (output, preprocessInfo, confidenceThreshold = 0.5, iouThres
     // YOLOv8 output shape: [1, 5, 8400] where 5 = x, y, w, h, confidence
     // Or [1, 84, 8400] for 80 classes
     const data = output.data;
-    const [batch, numFeatures, numBoxes] = output.dims;
+    const dims = output.dims;
+
+    console.log('📊 Output dims:', dims);
+    console.log('📊 Scale:', scale, 'Offset X:', offsetX, 'Offset Y:', offsetY);
 
     const detections = [];
-    const numClasses = numFeatures - 4; // First 4 are x, y, w, h
+
+    // Check if this is transposed output [1, 8400, 5] vs [1, 5, 8400]
+    let numBoxes, numFeatures;
+    if (dims[1] > dims[2]) {
+        // Format: [1, 8400, 5] - rows are boxes
+        numBoxes = dims[1];
+        numFeatures = dims[2];
+    } else {
+        // Format: [1, 5, 8400] - columns are boxes
+        numBoxes = dims[2];
+        numFeatures = dims[1];
+    }
+
+    console.log('📊 Num boxes:', numBoxes, 'Num features:', numFeatures);
+
+    const numClasses = numFeatures - 4;
 
     for (let i = 0; i < numBoxes; i++) {
-        // Get box coordinates
-        const x = data[0 * numBoxes + i];
-        const y = data[1 * numBoxes + i];
-        const w = data[2 * numBoxes + i];
-        const h = data[3 * numBoxes + i];
+        let x, y, w, h, maxConf, maxClassIdx;
 
-        // Get class confidences
-        let maxConf = 0;
-        let maxClassIdx = 0;
+        if (dims[1] > dims[2]) {
+            // Format: [1, 8400, 5] - each row is a box
+            x = data[i * numFeatures + 0];
+            y = data[i * numFeatures + 1];
+            w = data[i * numFeatures + 2];
+            h = data[i * numFeatures + 3];
 
-        for (let c = 0; c < numClasses; c++) {
-            const conf = data[(4 + c) * numBoxes + i];
-            if (conf > maxConf) {
-                maxConf = conf;
-                maxClassIdx = c;
+            maxConf = 0;
+            maxClassIdx = 0;
+            for (let c = 0; c < numClasses; c++) {
+                const conf = data[i * numFeatures + 4 + c];
+                if (conf > maxConf) {
+                    maxConf = conf;
+                    maxClassIdx = c;
+                }
+            }
+        } else {
+            // Format: [1, 5, 8400] - each column is a box
+            x = data[0 * numBoxes + i];
+            y = data[1 * numBoxes + i];
+            w = data[2 * numBoxes + i];
+            h = data[3 * numBoxes + i];
+
+            maxConf = 0;
+            maxClassIdx = 0;
+            for (let c = 0; c < numClasses; c++) {
+                const conf = data[(4 + c) * numBoxes + i];
+                if (conf > maxConf) {
+                    maxConf = conf;
+                    maxClassIdx = c;
+                }
             }
         }
 
         if (maxConf > confidenceThreshold) {
+            // YOLOv8 outputs are in 640x640 space
             // Convert from center format to corner format
-            const x1 = x - w / 2;
-            const y1 = y - h / 2;
-            const x2 = x + w / 2;
-            const y2 = y + h / 2;
+            const x1_640 = x - w / 2;
+            const y1_640 = y - h / 2;
+            const x2_640 = x + w / 2;
+            const y2_640 = y + h / 2;
 
-            // Transform back to original image coordinates
-            const origX1 = (x1 - offsetX) / scale;
-            const origY1 = (y1 - offsetY) / scale;
-            const origX2 = (x2 - offsetX) / scale;
-            const origY2 = (y2 - offsetY) / scale;
+            // Remove letterbox offset and scale back to original image
+            const x1 = (x1_640 - offsetX) / scale;
+            const y1 = (y1_640 - offsetY) / scale;
+            const x2 = (x2_640 - offsetX) / scale;
+            const y2 = (y2_640 - offsetY) / scale;
+
+            console.log(`📦 Detection: x=${x.toFixed(1)}, y=${y.toFixed(1)}, w=${w.toFixed(1)}, h=${h.toFixed(1)}, conf=${maxConf.toFixed(3)}`);
+            console.log(`📦 Transformed: x1=${x1.toFixed(1)}, y1=${y1.toFixed(1)}, x2=${x2.toFixed(1)}, y2=${y2.toFixed(1)}`);
 
             detections.push({
                 label: CLASS_NAMES[maxClassIdx] || 'tiang',
                 confidence: maxConf,
                 bbox: {
-                    x: Math.max(0, origX1),
-                    y: Math.max(0, origY1),
-                    w: Math.min(origX2 - origX1, originalWidth - origX1),
-                    h: Math.min(origY2 - origY1, originalHeight - origY1)
+                    x: Math.max(0, x1),
+                    y: Math.max(0, y1),
+                    w: Math.max(0, Math.min(x2 - x1, originalWidth - x1)),
+                    h: Math.max(0, Math.min(y2 - y1, originalHeight - y1))
                 }
             });
         }
