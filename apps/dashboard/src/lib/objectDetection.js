@@ -30,7 +30,7 @@ export const loadModel = async () => {
         // Configure ONNX Runtime
         ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/';
 
-        session = await ort.InferenceSession.create('/models/tiang_model.onnx', {
+        session = await ort.InferenceSession.create('https://wrwlibyrpoqknaycwlex.supabase.co/storage/v1/object/public/models/tiang_model.onnx', {
             executionProviders: ['wasm'],
             graphOptimizationLevel: 'all'
         });
