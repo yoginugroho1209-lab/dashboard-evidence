@@ -27,12 +27,13 @@ export const loadModel = async () => {
     try {
         console.log('🔄 Loading custom tiang detection model...');
 
-        // Configure ONNX Runtime
-        ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.0/dist/';
+        // Configure ONNX Runtime WASM
+        ort.env.wasm.numThreads = 1;
+        ort.env.wasm.simd = true;
 
         session = await ort.InferenceSession.create('https://wrwlibyrpoqknaycwlex.supabase.co/storage/v1/object/public/models/tiang_model.onnx', {
             executionProviders: ['wasm'],
-            graphOptimizationLevel: 'all'
+            graphOptimizationLevel: 'basic'
         });
 
         console.log('✅ Custom model loaded successfully!');
