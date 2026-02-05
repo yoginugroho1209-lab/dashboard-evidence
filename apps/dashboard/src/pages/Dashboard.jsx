@@ -1,6 +1,7 @@
 import React from 'react'
 import StatsGrid from '../components/dashboard/StatsGrid'
 import ActivityChart from '../components/dashboard/ActivityChart'
+import ProjectDistribution from '../components/dashboard/ProjectDistribution'
 import RecentUploads from '../components/dashboard/RecentUploads'
 import Header from '../components/layout/Header'
 
@@ -14,9 +15,17 @@ const Dashboard = () => {
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto p-8 z-10">
-                <div className="max-w-[1200px] mx-auto flex flex-col gap-8">
+                <div className="max-w-[1400px] mx-auto flex flex-col gap-8">
+                    {/* Stats Cards Row */}
                     <StatsGrid />
-                    <ActivityChart />
+
+                    {/* Charts Row - 2 Column Grid */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <ActivityChart />
+                        <ProjectDistribution />
+                    </div>
+
+                    {/* Recent Uploads Table */}
                     <RecentUploads />
                 </div>
             </div>
