@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import ManageProjectsModal from '../components/ManageProjectsModal'
 import JSZip from 'jszip'
-import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, WidthType, BorderStyle } from 'docx'
+import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, WidthType, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
 
 const Reports = () => {
@@ -17,6 +17,7 @@ const Reports = () => {
     const [isManageModalOpen, setIsManageModalOpen] = useState(false);
     const [selectedItems, setSelectedItems] = useState(new Set()); // Selected row IDs
     const [isProcessing, setIsProcessing] = useState(false);
+    const [exportProgress, setExportProgress] = useState(null); // For showing export progress
 
     const fetchProjects = async () => {
         const { data, error } = await supabase
@@ -778,7 +779,7 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
         URL.revokeObjectURL(url);
     };
 
-    // Word/DOCX Export
+    // Word/DOCX Export with Photos
     const handleDownloadWord = async () => {
         const selectedProject = projects.find(p => p.id === selectedProjectId);
         const projectName = selectedProject?.name || 'Evidence Report';
@@ -789,96 +790,234 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
             day: 'numeric'
         });
 
-        // Create table rows
-        const tableRows = [
-            // Header row
-            new TableRow({
-                tableHeader: true,
-                children: [
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'No', bold: true })] })], width: { size: 5, type: WidthType.PERCENTAGE } }),
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Point ID', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Name', bold: true })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Latitude', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Longitude', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Status', bold: true })] })], width: { size: 10, type: WidthType.PERCENTAGE } }),
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Timestamp', bold: true })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
-                ],
-            }),
-            // Data rows
-            ...evidenceList.map((item, idx) => {
+        setIsProcessing(true);
+        setExportProgress('Mempersiapkan dokumen...');
+
+        try {
+            // Helper function to fetch image as ArrayBuffer
+            const fetchImageAsBuffer = async (url) => {
+                try {
+                    const response = await fetch(url);
+                    if (!response.ok) return null;
+                    const blob = await response.blob();
+                    return await blob.arrayBuffer();
+                } catch (error) {
+                    console.error('Error fetching image:', error);
+                    return null;
+                }
+            };
+
+            // Calculate stats
+            const totalPoints = evidenceList.length;
+            const withEvidence = evidenceList.filter(e => e.photo_url || e.evidence?.length > 0).length;
+            const pending = totalPoints - withEvidence;
+            const completionRate = totalPoints > 0 ? Math.round((withEvidence / totalPoints) * 100) : 0;
+
+            // Build evidence sections with photos
+            const evidenceSections = [];
+
+            for (let i = 0; i < evidenceList.length; i++) {
+                const item = evidenceList[i];
                 const lat = item.latitude || item.exif_latitude || '';
                 const lng = item.longitude || item.exif_longitude || '';
                 const hasEvidence = item.evidence?.length > 0 || item.photo_url;
+                const photoUrl = item.photo_url || item.evidence?.[0]?.photo_url;
                 const timestamp = item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : '-';
 
-                return new TableRow({
-                    children: [
-                        new TableCell({ children: [new Paragraph(String(idx + 1))] }),
-                        new TableCell({ children: [new Paragraph(item.point_id || '-')] }),
-                        new TableCell({ children: [new Paragraph(item.name || '-')] }),
-                        new TableCell({ children: [new Paragraph(lat ? Number(lat).toFixed(6) : '-')] }),
-                        new TableCell({ children: [new Paragraph(lng ? Number(lng).toFixed(6) : '-')] }),
-                        new TableCell({ children: [new Paragraph(hasEvidence ? 'Evidence' : 'Pending')] }),
-                        new TableCell({ children: [new Paragraph(timestamp)] }),
-                    ],
-                });
-            }),
-        ];
+                setExportProgress(`Memproses titik ${i + 1} dari ${evidenceList.length}...`);
 
-        // Calculate stats
-        const totalPoints = evidenceList.length;
-        const withEvidence = evidenceList.filter(e => e.photo_url || e.evidence?.length > 0).length;
-        const pending = totalPoints - withEvidence;
-        const completionRate = totalPoints > 0 ? Math.round((withEvidence / totalPoints) * 100) : 0;
+                // Section header for each point
+                evidenceSections.push(
+                    new Paragraph({
+                        children: [new TextRun({ text: `${i + 1}. ${item.name || item.point_id || 'Titik ' + (i + 1)}`, bold: true, size: 24 })],
+                        spacing: { before: 400, after: 200 },
+                    })
+                );
 
-        // Create document
-        const doc = new Document({
-            sections: [{
-                properties: {},
-                children: [
-                    // Title
-                    new Paragraph({
-                        children: [new TextRun({ text: 'LAPORAN EVIDENCE', bold: true, size: 32 })],
-                        heading: HeadingLevel.TITLE,
-                        alignment: AlignmentType.CENTER,
+                // Details table
+                const detailRows = [
+                    new TableRow({
+                        children: [
+                            new TableCell({
+                                children: [new Paragraph({ children: [new TextRun({ text: 'Point ID', bold: true })] })],
+                                width: { size: 25, type: WidthType.PERCENTAGE }
+                            }),
+                            new TableCell({
+                                children: [new Paragraph(item.point_id || '-')],
+                                width: { size: 75, type: WidthType.PERCENTAGE }
+                            }),
+                        ],
                     }),
-                    new Paragraph({
-                        children: [new TextRun({ text: projectName, bold: true, size: 28 })],
-                        alignment: AlignmentType.CENTER,
+                    new TableRow({
+                        children: [
+                            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Nama Titik', bold: true })] })] }),
+                            new TableCell({ children: [new Paragraph(item.name || '-')] }),
+                        ],
                     }),
-                    new Paragraph({
-                        children: [new TextRun({ text: `Generated: ${dateString}`, italics: true, size: 20 })],
-                        alignment: AlignmentType.CENTER,
+                    new TableRow({
+                        children: [
+                            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Koordinat', bold: true })] })] }),
+                            new TableCell({ children: [new Paragraph(lat && lng ? `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}` : '-')] }),
+                        ],
                     }),
-                    new Paragraph({ children: [] }), // Spacer
+                    new TableRow({
+                        children: [
+                            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Status', bold: true })] })] }),
+                            new TableCell({ children: [new Paragraph(hasEvidence ? '✓ Evidence Uploaded' : '○ Pending')] }),
+                        ],
+                    }),
+                    new TableRow({
+                        children: [
+                            new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Timestamp', bold: true })] })] }),
+                            new TableCell({ children: [new Paragraph(timestamp)] }),
+                        ],
+                    }),
+                ];
 
-                    // Summary
-                    new Paragraph({
-                        children: [new TextRun({ text: 'RINGKASAN', bold: true, size: 24 })],
-                        heading: HeadingLevel.HEADING_1,
-                    }),
-                    new Paragraph({ children: [new TextRun(`Total Titik: ${totalPoints}`)] }),
-                    new Paragraph({ children: [new TextRun(`Dengan Evidence: ${withEvidence}`)] }),
-                    new Paragraph({ children: [new TextRun(`Pending: ${pending}`)] }),
-                    new Paragraph({ children: [new TextRun(`Completion Rate: ${completionRate}%`)] }),
-                    new Paragraph({ children: [] }), // Spacer
-
-                    // Data Table
-                    new Paragraph({
-                        children: [new TextRun({ text: 'DATA TITIK', bold: true, size: 24 })],
-                        heading: HeadingLevel.HEADING_1,
-                    }),
+                evidenceSections.push(
                     new Table({
-                        rows: tableRows,
+                        rows: detailRows,
                         width: { size: 100, type: WidthType.PERCENTAGE },
-                    }),
-                ],
-            }],
-        });
+                    })
+                );
 
-        // Generate and download
-        const blob = await Packer.toBlob(doc);
-        saveAs(blob, `${projectName}_Report_${new Date().toISOString().split('T')[0]}.docx`);
+                // Add photo if available
+                if (hasEvidence && photoUrl) {
+                    const imageBuffer = await fetchImageAsBuffer(photoUrl);
+
+                    if (imageBuffer) {
+                        evidenceSections.push(
+                            new Paragraph({
+                                children: [new TextRun({ text: 'Foto Evidence:', bold: true, size: 20 })],
+                                spacing: { before: 200, after: 100 },
+                            })
+                        );
+                        evidenceSections.push(
+                            new Paragraph({
+                                children: [
+                                    new ImageRun({
+                                        data: imageBuffer,
+                                        transformation: {
+                                            width: 400,
+                                            height: 300,
+                                        },
+                                        type: 'jpg',
+                                    }),
+                                ],
+                                alignment: AlignmentType.CENTER,
+                            })
+                        );
+                    } else {
+                        evidenceSections.push(
+                            new Paragraph({
+                                children: [new TextRun({ text: '[Foto tidak dapat dimuat]', italics: true, color: '888888' })],
+                                spacing: { before: 100 },
+                            })
+                        );
+                    }
+                } else {
+                    evidenceSections.push(
+                        new Paragraph({
+                            children: [new TextRun({ text: '[Belum ada foto evidence]', italics: true, color: '888888' })],
+                            spacing: { before: 100 },
+                        })
+                    );
+                }
+
+                // Separator line
+                evidenceSections.push(
+                    new Paragraph({
+                        children: [new TextRun({ text: '─'.repeat(50), color: 'CCCCCC' })],
+                        spacing: { before: 200, after: 200 },
+                        alignment: AlignmentType.CENTER,
+                    })
+                );
+            }
+
+            setExportProgress('Membuat dokumen Word...');
+
+            // Create document
+            const doc = new Document({
+                sections: [{
+                    properties: {},
+                    children: [
+                        // Title
+                        new Paragraph({
+                            children: [new TextRun({ text: 'LAPORAN EVIDENCE', bold: true, size: 36 })],
+                            heading: HeadingLevel.TITLE,
+                            alignment: AlignmentType.CENTER,
+                            spacing: { after: 100 },
+                        }),
+                        new Paragraph({
+                            children: [new TextRun({ text: projectName, bold: true, size: 28 })],
+                            alignment: AlignmentType.CENTER,
+                        }),
+                        new Paragraph({
+                            children: [new TextRun({ text: `Generated: ${dateString}`, italics: true, size: 20 })],
+                            alignment: AlignmentType.CENTER,
+                            spacing: { after: 400 },
+                        }),
+
+                        // Summary
+                        new Paragraph({
+                            children: [new TextRun({ text: 'RINGKASAN', bold: true, size: 26 })],
+                            heading: HeadingLevel.HEADING_1,
+                            spacing: { before: 200, after: 200 },
+                        }),
+                        new Table({
+                            rows: [
+                                new TableRow({
+                                    children: [
+                                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Total Titik', bold: true })] })] }),
+                                        new TableCell({ children: [new Paragraph(String(totalPoints))] }),
+                                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Dengan Evidence', bold: true })] })] }),
+                                        new TableCell({ children: [new Paragraph(String(withEvidence))] }),
+                                    ],
+                                }),
+                                new TableRow({
+                                    children: [
+                                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Pending', bold: true })] })] }),
+                                        new TableCell({ children: [new Paragraph(String(pending))] }),
+                                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Completion Rate', bold: true })] })] }),
+                                        new TableCell({ children: [new Paragraph(`${completionRate}%`)] }),
+                                    ],
+                                }),
+                            ],
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                        }),
+
+                        // Page break before evidence details
+                        new Paragraph({
+                            children: [],
+                            pageBreakBefore: true,
+                        }),
+
+                        // Evidence Details Header
+                        new Paragraph({
+                            children: [new TextRun({ text: 'DETAIL EVIDENCE', bold: true, size: 26 })],
+                            heading: HeadingLevel.HEADING_1,
+                            spacing: { after: 300 },
+                        }),
+
+                        // All evidence sections
+                        ...evidenceSections,
+                    ],
+                }],
+            });
+
+            setExportProgress('Mengunduh file...');
+
+            // Generate and download
+            const blob = await Packer.toBlob(doc);
+            saveAs(blob, `${projectName}_Report_${new Date().toISOString().split('T')[0]}.docx`);
+
+        } catch (error) {
+            console.error('Error generating Word document:', error);
+            alert('Gagal membuat dokumen Word. Silakan coba lagi.');
+        } finally {
+            setIsProcessing(false);
+            setExportProgress(null);
+        }
     };
 
     // Handle download based on selected format
@@ -1201,16 +1340,36 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="h-20 border-t border-border-dark bg-[#1c1e20] p-4 flex items-center justify-end gap-3 z-20">
+                    <div className="h-20 border-t border-border-dark bg-[#1c1e20] p-4 flex items-center justify-between z-20">
+                        {/* Export Progress */}
+                        <div className="flex-1">
+                            {exportProgress && (
+                                <div className="flex items-center gap-2 text-primary">
+                                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                    <span className="text-sm">{exportProgress}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Download Button */}
                         <button
                             onClick={handleDownload}
-                            disabled={evidenceList.length === 0}
+                            disabled={evidenceList.length === 0 || isProcessing}
                             className="px-6 py-2.5 rounded bg-primary hover:bg-primary/90 text-white shadow-[0_0_15px_-3px_rgba(27,152,141,0.4)] transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <span className="material-symbols-outlined text-[20px]">
-                                {exportFormat === 'kml' ? 'map' : exportFormat === 'csv' ? 'table_view' : 'description'}
-                            </span>
-                            Download {exportFormat.toUpperCase()}
+                            {isProcessing ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                    Processing...
+                                </>
+                            ) : (
+                                <>
+                                    <span className="material-symbols-outlined text-[20px]">
+                                        {exportFormat === 'kml' ? 'map' : exportFormat === 'csv' ? 'table_view' : 'description'}
+                                    </span>
+                                    Download {exportFormat.toUpperCase()}
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
