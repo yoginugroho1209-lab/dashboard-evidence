@@ -4,6 +4,7 @@ import ManageProjectsModal from '../components/ManageProjectsModal'
 import JSZip from 'jszip'
 import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, WidthType, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
+import ExcelJS from 'exceljs'
 
 const Reports = () => {
     const [projects, setProjects] = useState([]);
@@ -794,17 +795,55 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
         setExportProgress('Mempersiapkan dokumen...');
 
         try {
-            // Helper function to fetch image as ArrayBuffer
-            const fetchImageAsBuffer = async (url) => {
+            // Helper function to fetch image and get dimensions
+            const fetchImageWithDimensions = async (url) => {
                 try {
                     const response = await fetch(url);
                     if (!response.ok) return null;
                     const blob = await response.blob();
-                    return await blob.arrayBuffer();
+                    const arrayBuffer = await blob.arrayBuffer();
+
+                    // Get image dimensions using Image element
+                    const img = new Image();
+                    const imageUrl = URL.createObjectURL(blob);
+
+                    return new Promise((resolve) => {
+                        img.onload = () => {
+                            URL.revokeObjectURL(imageUrl);
+                            resolve({
+                                buffer: arrayBuffer,
+                                width: img.naturalWidth,
+                                height: img.naturalHeight
+                            });
+                        };
+                        img.onerror = () => {
+                            URL.revokeObjectURL(imageUrl);
+                            resolve({ buffer: arrayBuffer, width: 400, height: 300 });
+                        };
+                        img.src = imageUrl;
+                    });
                 } catch (error) {
                     console.error('Error fetching image:', error);
                     return null;
                 }
+            };
+
+            // Calculate scaled dimensions maintaining aspect ratio
+            const getScaledDimensions = (width, height, maxWidth = 350, maxHeight = 450) => {
+                const aspectRatio = width / height;
+                let newWidth = width;
+                let newHeight = height;
+
+                if (newWidth > maxWidth) {
+                    newWidth = maxWidth;
+                    newHeight = maxWidth / aspectRatio;
+                }
+                if (newHeight > maxHeight) {
+                    newHeight = maxHeight;
+                    newWidth = maxHeight * aspectRatio;
+                }
+
+                return { width: Math.round(newWidth), height: Math.round(newHeight) };
             };
 
             // Calculate stats
@@ -883,9 +922,11 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
 
                 // Add photo if available
                 if (hasEvidence && photoUrl) {
-                    const imageBuffer = await fetchImageAsBuffer(photoUrl);
+                    const imageData = await fetchImageWithDimensions(photoUrl);
 
-                    if (imageBuffer) {
+                    if (imageData && imageData.buffer) {
+                        const scaledSize = getScaledDimensions(imageData.width, imageData.height);
+
                         evidenceSections.push(
                             new Paragraph({
                                 children: [new TextRun({ text: 'Foto Evidence:', bold: true, size: 20 })],
@@ -896,10 +937,10 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             new Paragraph({
                                 children: [
                                     new ImageRun({
-                                        data: imageBuffer,
+                                        data: imageData.buffer,
                                         transformation: {
-                                            width: 400,
-                                            height: 300,
+                                            width: scaledSize.width,
+                                            height: scaledSize.height,
                                         },
                                         type: 'jpg',
                                     }),
@@ -1067,6 +1108,215 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
         }
     };
 
+    // Excel Export with formatting
+    const handleDownloadExcel = async () => {
+        const selectedProject = projects.find(p => p.id === selectedProjectId);
+        const projectName = selectedProject?.name || 'Evidence Report';
+        const dateString = new Date().toLocaleDateString('id-ID', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        setIsProcessing(true);
+        setExportProgress('Membuat file Excel...');
+
+        try {
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'Dashboard Evidence';
+            workbook.created = new Date();
+
+            // ========== SHEET 1: RINGKASAN ==========
+            const summarySheet = workbook.addWorksheet('Ringkasan', {
+                properties: { tabColor: { argb: '1B988D' } }
+            });
+
+            // Calculate stats
+            const totalPoints = evidenceList.length;
+            const withEvidence = evidenceList.filter(e => e.photo_url || e.evidence?.length > 0).length;
+            const pending = totalPoints - withEvidence;
+            const completionRate = totalPoints > 0 ? Math.round((withEvidence / totalPoints) * 100) : 0;
+
+            // Title
+            summarySheet.mergeCells('A1:D1');
+            const titleCell = summarySheet.getCell('A1');
+            titleCell.value = 'LAPORAN EVIDENCE';
+            titleCell.font = { bold: true, size: 18, color: { argb: 'FF1B988D' } };
+            titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            summarySheet.mergeCells('A2:D2');
+            const projectCell = summarySheet.getCell('A2');
+            projectCell.value = projectName;
+            projectCell.font = { bold: true, size: 14 };
+            projectCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            summarySheet.mergeCells('A3:D3');
+            const dateCell = summarySheet.getCell('A3');
+            dateCell.value = `Generated: ${dateString}`;
+            dateCell.font = { italic: true, size: 10, color: { argb: 'FF666666' } };
+            dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            // Summary Stats (row 5-6)
+            summarySheet.getCell('A5').value = 'Total Titik';
+            summarySheet.getCell('B5').value = totalPoints;
+            summarySheet.getCell('C5').value = 'Dengan Evidence';
+            summarySheet.getCell('D5').value = withEvidence;
+
+            summarySheet.getCell('A6').value = 'Pending';
+            summarySheet.getCell('B6').value = pending;
+            summarySheet.getCell('C6').value = 'Completion Rate';
+            summarySheet.getCell('D6').value = `${completionRate}%`;
+
+            // Style summary stats
+            ['A5', 'C5', 'A6', 'C6'].forEach(cell => {
+                summarySheet.getCell(cell).font = { bold: true };
+                summarySheet.getCell(cell).fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FFE8F5F3' }
+                };
+            });
+
+            ['B5', 'D5', 'B6', 'D6'].forEach(cell => {
+                summarySheet.getCell(cell).alignment = { horizontal: 'center' };
+                summarySheet.getCell(cell).font = { bold: true, size: 12 };
+            });
+
+            // Add border to summary
+            for (let row = 5; row <= 6; row++) {
+                for (let col = 1; col <= 4; col++) {
+                    const cell = summarySheet.getCell(row, col);
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+                        left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+                        bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+                        right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+                    };
+                }
+            }
+
+            // Set column widths for summary
+            summarySheet.columns = [
+                { width: 20 }, { width: 15 }, { width: 20 }, { width: 15 }
+            ];
+
+            // ========== SHEET 2: DATA TITIK ==========
+            const dataSheet = workbook.addWorksheet('Data Titik', {
+                properties: { tabColor: { argb: '3B82F6' } }
+            });
+
+            // Headers
+            const headers = ['No', 'Point ID', 'Nama Titik', 'Latitude', 'Longitude', 'Status', 'Timestamp', 'Foto URL'];
+            const headerRow = dataSheet.addRow(headers);
+
+            // Style header row
+            headerRow.eachCell((cell) => {
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF1B988D' }
+                };
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FF0D5C56' } },
+                    left: { style: 'thin', color: { argb: 'FF0D5C56' } },
+                    bottom: { style: 'thin', color: { argb: 'FF0D5C56' } },
+                    right: { style: 'thin', color: { argb: 'FF0D5C56' } }
+                };
+            });
+
+            // Data rows
+            evidenceList.forEach((item, idx) => {
+                const lat = item.latitude || item.exif_latitude || '';
+                const lng = item.longitude || item.exif_longitude || '';
+                const hasEvidence = item.evidence?.length > 0 || item.photo_url;
+                const timestamp = item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : '-';
+                const photoUrl = item.photo_url || item.evidence?.[0]?.photo_url || '-';
+
+                const row = dataSheet.addRow([
+                    idx + 1,
+                    item.point_id || '-',
+                    item.name || '-',
+                    lat ? Number(lat).toFixed(6) : '-',
+                    lng ? Number(lng).toFixed(6) : '-',
+                    hasEvidence ? '✓ Evidence' : '○ Pending',
+                    timestamp,
+                    photoUrl
+                ]);
+
+                // Alternate row colors
+                if (idx % 2 === 0) {
+                    row.eachCell((cell) => {
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFF8FAFA' }
+                        };
+                    });
+                }
+
+                // Style status cell
+                const statusCell = row.getCell(6);
+                if (hasEvidence) {
+                    statusCell.font = { color: { argb: 'FF16A34A' }, bold: true };
+                } else {
+                    statusCell.font = { color: { argb: 'FFEA580C' } };
+                }
+
+                // Add borders
+                row.eachCell((cell) => {
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFE5E5E5' } },
+                        left: { style: 'thin', color: { argb: 'FFE5E5E5' } },
+                        bottom: { style: 'thin', color: { argb: 'FFE5E5E5' } },
+                        right: { style: 'thin', color: { argb: 'FFE5E5E5' } }
+                    };
+                    cell.alignment = { vertical: 'middle' };
+                });
+
+                // Center number column
+                row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+            });
+
+            // Set column widths
+            dataSheet.columns = [
+                { width: 6 },   // No
+                { width: 15 },  // Point ID
+                { width: 30 },  // Nama
+                { width: 15 },  // Lat
+                { width: 15 },  // Lng
+                { width: 15 },  // Status
+                { width: 20 },  // Timestamp
+                { width: 50 }   // URL
+            ];
+
+            // Freeze header row
+            dataSheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+            // Auto filter
+            dataSheet.autoFilter = {
+                from: { row: 1, column: 1 },
+                to: { row: evidenceList.length + 1, column: 8 }
+            };
+
+            setExportProgress('Mengunduh file Excel...');
+
+            // Generate and download
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            saveAs(blob, `${projectName}_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+        } catch (error) {
+            console.error('Error generating Excel:', error);
+            alert('Gagal membuat file Excel. Silakan coba lagi.');
+        } finally {
+            setIsProcessing(false);
+            setExportProgress(null);
+        }
+    };
+
     // Handle download based on selected format
     const handleDownload = () => {
         switch (exportFormat) {
@@ -1078,6 +1328,9 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                 break;
             case 'word':
                 handleDownloadWord();
+                break;
+            case 'excel':
+                handleDownloadExcel();
                 break;
             default:
                 handleDownloadKML();
@@ -1164,7 +1417,7 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             {/* Export Format */}
                             <div className="flex flex-col gap-3">
                                 <label className="text-slate-300 text-sm font-medium">Export Format</label>
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-4 gap-2">
                                     <label className="cursor-pointer">
                                         <input
                                             checked={exportFormat === 'kml'}
@@ -1174,9 +1427,9 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                             type="radio"
                                             value="kml"
                                         />
-                                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[24px]">map</span>
-                                            <span className="text-xs font-medium">KML</span>
+                                        <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[20px]">map</span>
+                                            <span className="text-[10px] font-medium">KML</span>
                                         </div>
                                     </label>
                                     <label className="cursor-pointer">
@@ -1188,9 +1441,23 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                             type="radio"
                                             value="csv"
                                         />
-                                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[24px]">table_view</span>
-                                            <span className="text-xs font-medium">CSV</span>
+                                        <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[20px]">table_view</span>
+                                            <span className="text-[10px] font-medium">CSV</span>
+                                        </div>
+                                    </label>
+                                    <label className="cursor-pointer">
+                                        <input
+                                            checked={exportFormat === 'excel'}
+                                            onChange={() => setExportFormat('excel')}
+                                            className="peer sr-only"
+                                            name="format"
+                                            type="radio"
+                                            value="excel"
+                                        />
+                                        <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[20px]">grid_on</span>
+                                            <span className="text-[10px] font-medium">Excel</span>
                                         </div>
                                     </label>
                                     <label className="cursor-pointer">
@@ -1202,9 +1469,9 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                             type="radio"
                                             value="word"
                                         />
-                                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[24px]">description</span>
-                                            <span className="text-xs font-medium">Word</span>
+                                        <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[20px]">description</span>
+                                            <span className="text-[10px] font-medium">Word</span>
                                         </div>
                                     </label>
                                 </div>
@@ -1412,7 +1679,7 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             ) : (
                                 <>
                                     <span className="material-symbols-outlined text-[20px]">
-                                        {exportFormat === 'kml' ? 'map' : exportFormat === 'csv' ? 'table_view' : 'description'}
+                                        {exportFormat === 'kml' ? 'map' : exportFormat === 'csv' ? 'table_view' : exportFormat === 'excel' ? 'grid_on' : 'description'}
                                     </span>
                                     Download {exportFormat.toUpperCase()}
                                 </>
