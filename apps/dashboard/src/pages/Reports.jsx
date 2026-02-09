@@ -936,12 +936,48 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
 
             setExportProgress('Membuat dokumen Word...');
 
+            // Create data table rows for summary table
+            const dataTableRows = [
+                // Header row
+                new TableRow({
+                    tableHeader: true,
+                    children: [
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'No', bold: true })] })], width: { size: 5, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Point ID', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Nama', bold: true })] })], width: { size: 25, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Latitude', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Longitude', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Status', bold: true })] })], width: { size: 10, type: WidthType.PERCENTAGE } }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Timestamp', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+                    ],
+                }),
+                // Data rows
+                ...evidenceList.map((item, idx) => {
+                    const lat = item.latitude || item.exif_latitude || '';
+                    const lng = item.longitude || item.exif_longitude || '';
+                    const hasEvidence = item.evidence?.length > 0 || item.photo_url;
+                    const timestamp = item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-';
+
+                    return new TableRow({
+                        children: [
+                            new TableCell({ children: [new Paragraph(String(idx + 1))] }),
+                            new TableCell({ children: [new Paragraph(item.point_id || '-')] }),
+                            new TableCell({ children: [new Paragraph(item.name || '-')] }),
+                            new TableCell({ children: [new Paragraph(lat ? Number(lat).toFixed(6) : '-')] }),
+                            new TableCell({ children: [new Paragraph(lng ? Number(lng).toFixed(6) : '-')] }),
+                            new TableCell({ children: [new Paragraph(hasEvidence ? '✓' : '○')] }),
+                            new TableCell({ children: [new Paragraph(timestamp)] }),
+                        ],
+                    });
+                }),
+            ];
+
             // Create document
             const doc = new Document({
                 sections: [{
                     properties: {},
                     children: [
-                        // Title
+                        // ========== JUDUL ==========
                         new Paragraph({
                             children: [new TextRun({ text: 'LAPORAN EVIDENCE', bold: true, size: 36 })],
                             heading: HeadingLevel.TITLE,
@@ -958,7 +994,7 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             spacing: { after: 400 },
                         }),
 
-                        // Summary
+                        // ========== RINGKASAN ==========
                         new Paragraph({
                             children: [new TextRun({ text: 'RINGKASAN', bold: true, size: 26 })],
                             heading: HeadingLevel.HEADING_1,
@@ -986,20 +1022,31 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             width: { size: 100, type: WidthType.PERCENTAGE },
                         }),
 
+                        // ========== DATA TITIK ==========
+                        new Paragraph({
+                            children: [new TextRun({ text: 'DATA TITIK', bold: true, size: 26 })],
+                            heading: HeadingLevel.HEADING_1,
+                            spacing: { before: 400, after: 200 },
+                        }),
+                        new Table({
+                            rows: dataTableRows,
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                        }),
+
                         // Page break before evidence details
                         new Paragraph({
                             children: [],
                             pageBreakBefore: true,
                         }),
 
-                        // Evidence Details Header
+                        // ========== DETAIL EVIDENCE ==========
                         new Paragraph({
                             children: [new TextRun({ text: 'DETAIL EVIDENCE', bold: true, size: 26 })],
                             heading: HeadingLevel.HEADING_1,
                             spacing: { after: 300 },
                         }),
 
-                        // All evidence sections
+                        // All evidence sections with photos
                         ...evidenceSections,
                     ],
                 }],
