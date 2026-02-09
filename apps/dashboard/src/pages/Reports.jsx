@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import ManageProjectsModal from '../components/ManageProjectsModal'
 import JSZip from 'jszip'
+import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, WidthType, BorderStyle } from 'docx'
+import { saveAs } from 'file-saver'
 
 const Reports = () => {
     const [projects, setProjects] = useState([]);
@@ -776,6 +778,126 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
         URL.revokeObjectURL(url);
     };
 
+    // Word/DOCX Export
+    const handleDownloadWord = async () => {
+        const selectedProject = projects.find(p => p.id === selectedProjectId);
+        const projectName = selectedProject?.name || 'Evidence Report';
+        const dateString = new Date().toLocaleDateString('id-ID', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        // Create table rows
+        const tableRows = [
+            // Header row
+            new TableRow({
+                tableHeader: true,
+                children: [
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'No', bold: true })] })], width: { size: 5, type: WidthType.PERCENTAGE } }),
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Point ID', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Name', bold: true })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Latitude', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Longitude', bold: true })] })], width: { size: 15, type: WidthType.PERCENTAGE } }),
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Status', bold: true })] })], width: { size: 10, type: WidthType.PERCENTAGE } }),
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Timestamp', bold: true })] })], width: { size: 20, type: WidthType.PERCENTAGE } }),
+                ],
+            }),
+            // Data rows
+            ...evidenceList.map((item, idx) => {
+                const lat = item.latitude || item.exif_latitude || '';
+                const lng = item.longitude || item.exif_longitude || '';
+                const hasEvidence = item.evidence?.length > 0 || item.photo_url;
+                const timestamp = item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : '-';
+
+                return new TableRow({
+                    children: [
+                        new TableCell({ children: [new Paragraph(String(idx + 1))] }),
+                        new TableCell({ children: [new Paragraph(item.point_id || '-')] }),
+                        new TableCell({ children: [new Paragraph(item.name || '-')] }),
+                        new TableCell({ children: [new Paragraph(lat ? Number(lat).toFixed(6) : '-')] }),
+                        new TableCell({ children: [new Paragraph(lng ? Number(lng).toFixed(6) : '-')] }),
+                        new TableCell({ children: [new Paragraph(hasEvidence ? 'Evidence' : 'Pending')] }),
+                        new TableCell({ children: [new Paragraph(timestamp)] }),
+                    ],
+                });
+            }),
+        ];
+
+        // Calculate stats
+        const totalPoints = evidenceList.length;
+        const withEvidence = evidenceList.filter(e => e.photo_url || e.evidence?.length > 0).length;
+        const pending = totalPoints - withEvidence;
+        const completionRate = totalPoints > 0 ? Math.round((withEvidence / totalPoints) * 100) : 0;
+
+        // Create document
+        const doc = new Document({
+            sections: [{
+                properties: {},
+                children: [
+                    // Title
+                    new Paragraph({
+                        children: [new TextRun({ text: 'LAPORAN EVIDENCE', bold: true, size: 32 })],
+                        heading: HeadingLevel.TITLE,
+                        alignment: AlignmentType.CENTER,
+                    }),
+                    new Paragraph({
+                        children: [new TextRun({ text: projectName, bold: true, size: 28 })],
+                        alignment: AlignmentType.CENTER,
+                    }),
+                    new Paragraph({
+                        children: [new TextRun({ text: `Generated: ${dateString}`, italics: true, size: 20 })],
+                        alignment: AlignmentType.CENTER,
+                    }),
+                    new Paragraph({ children: [] }), // Spacer
+
+                    // Summary
+                    new Paragraph({
+                        children: [new TextRun({ text: 'RINGKASAN', bold: true, size: 24 })],
+                        heading: HeadingLevel.HEADING_1,
+                    }),
+                    new Paragraph({ children: [new TextRun(`Total Titik: ${totalPoints}`)] }),
+                    new Paragraph({ children: [new TextRun(`Dengan Evidence: ${withEvidence}`)] }),
+                    new Paragraph({ children: [new TextRun(`Pending: ${pending}`)] }),
+                    new Paragraph({ children: [new TextRun(`Completion Rate: ${completionRate}%`)] }),
+                    new Paragraph({ children: [] }), // Spacer
+
+                    // Data Table
+                    new Paragraph({
+                        children: [new TextRun({ text: 'DATA TITIK', bold: true, size: 24 })],
+                        heading: HeadingLevel.HEADING_1,
+                    }),
+                    new Table({
+                        rows: tableRows,
+                        width: { size: 100, type: WidthType.PERCENTAGE },
+                    }),
+                ],
+            }],
+        });
+
+        // Generate and download
+        const blob = await Packer.toBlob(doc);
+        saveAs(blob, `${projectName}_Report_${new Date().toISOString().split('T')[0]}.docx`);
+    };
+
+    // Handle download based on selected format
+    const handleDownload = () => {
+        switch (exportFormat) {
+            case 'kml':
+                handleDownloadKML();
+                break;
+            case 'csv':
+                handleDownloadCSV();
+                break;
+            case 'word':
+                handleDownloadWord();
+                break;
+            default:
+                handleDownloadKML();
+        }
+    };
+
     const selectedProject = projects.find(p => p.id === selectedProjectId);
 
     return (
@@ -856,7 +978,7 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             {/* Export Format */}
                             <div className="flex flex-col gap-3">
                                 <label className="text-slate-300 text-sm font-medium">Export Format</label>
-                                <div className="grid grid-cols-2 gap-3">
+                                <div className="grid grid-cols-3 gap-3">
                                     <label className="cursor-pointer">
                                         <input
                                             checked={exportFormat === 'kml'}
@@ -866,9 +988,9 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                             type="radio"
                                             value="kml"
                                         />
-                                        <div className="flex flex-col items-center justify-center gap-2 p-4 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[28px]">map</span>
-                                            <span className="text-sm font-medium">KML File</span>
+                                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[24px]">map</span>
+                                            <span className="text-xs font-medium">KML</span>
                                         </div>
                                     </label>
                                     <label className="cursor-pointer">
@@ -880,9 +1002,23 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                             type="radio"
                                             value="csv"
                                         />
-                                        <div className="flex flex-col items-center justify-center gap-2 p-4 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[28px]">table_view</span>
-                                            <span className="text-sm font-medium">CSV/Excel</span>
+                                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[24px]">table_view</span>
+                                            <span className="text-xs font-medium">CSV</span>
+                                        </div>
+                                    </label>
+                                    <label className="cursor-pointer">
+                                        <input
+                                            checked={exportFormat === 'word'}
+                                            onChange={() => setExportFormat('word')}
+                                            className="peer sr-only"
+                                            name="format"
+                                            type="radio"
+                                            value="word"
+                                        />
+                                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[24px]">description</span>
+                                            <span className="text-xs font-medium">Word</span>
                                         </div>
                                     </label>
                                 </div>
@@ -1067,20 +1203,14 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                     {/* Footer Actions */}
                     <div className="h-20 border-t border-border-dark bg-[#1c1e20] p-4 flex items-center justify-end gap-3 z-20">
                         <button
-                            onClick={handleDownloadCSV}
+                            onClick={handleDownload}
                             disabled={evidenceList.length === 0}
-                            className="px-5 py-2.5 rounded border border-border-dark text-slate-300 hover:text-white hover:border-slate-500 hover:bg-white/5 transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-6 py-2.5 rounded bg-primary hover:bg-primary/90 text-white shadow-[0_0_15px_-3px_rgba(27,152,141,0.4)] transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <span className="material-symbols-outlined text-[20px]">table_view</span>
-                            Download CSV
-                        </button>
-                        <button
-                            onClick={handleDownloadKML}
-                            disabled={evidenceList.length === 0}
-                            className="px-5 py-2.5 rounded bg-primary hover:bg-primary/90 text-white shadow-[0_0_15px_-3px_rgba(27,152,141,0.4)] transition-all text-sm font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <span className="material-symbols-outlined text-[20px]">map</span>
-                            Download KML
+                            <span className="material-symbols-outlined text-[20px]">
+                                {exportFormat === 'kml' ? 'map' : exportFormat === 'csv' ? 'table_view' : 'description'}
+                            </span>
+                            Download {exportFormat.toUpperCase()}
                         </button>
                     </div>
                 </div>
