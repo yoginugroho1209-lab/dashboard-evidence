@@ -1323,9 +1323,6 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
             case 'kml':
                 handleDownloadKML();
                 break;
-            case 'csv':
-                handleDownloadCSV();
-                break;
             case 'word':
                 handleDownloadWord();
                 break;
@@ -1417,7 +1414,7 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             {/* Export Format */}
                             <div className="flex flex-col gap-3">
                                 <label className="text-slate-300 text-sm font-medium">Export Format</label>
-                                <div className="grid grid-cols-4 gap-2">
+                                <div className="grid grid-cols-3 gap-3">
                                     <label className="cursor-pointer">
                                         <input
                                             checked={exportFormat === 'kml'}
@@ -1427,23 +1424,9 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                             type="radio"
                                             value="kml"
                                         />
-                                        <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[20px]">map</span>
-                                            <span className="text-[10px] font-medium">KML</span>
-                                        </div>
-                                    </label>
-                                    <label className="cursor-pointer">
-                                        <input
-                                            checked={exportFormat === 'csv'}
-                                            onChange={() => setExportFormat('csv')}
-                                            className="peer sr-only"
-                                            name="format"
-                                            type="radio"
-                                            value="csv"
-                                        />
-                                        <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[20px]">table_view</span>
-                                            <span className="text-[10px] font-medium">CSV</span>
+                                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[24px]">map</span>
+                                            <span className="text-xs font-medium">KML</span>
                                         </div>
                                     </label>
                                     <label className="cursor-pointer">
@@ -1455,9 +1438,9 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                             type="radio"
                                             value="excel"
                                         />
-                                        <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[20px]">grid_on</span>
-                                            <span className="text-[10px] font-medium">Excel</span>
+                                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[24px]">table_view</span>
+                                            <span className="text-xs font-medium">Excel</span>
                                         </div>
                                     </label>
                                     <label className="cursor-pointer">
@@ -1469,9 +1452,9 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                             type="radio"
                                             value="word"
                                         />
-                                        <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[20px]">description</span>
-                                            <span className="text-[10px] font-medium">Word</span>
+                                        <div className="flex flex-col items-center justify-center gap-2 p-3 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
+                                            <span className="material-symbols-outlined text-[24px]">description</span>
+                                            <span className="text-xs font-medium">Word</span>
                                         </div>
                                     </label>
                                 </div>
@@ -1679,7 +1662,7 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             ) : (
                                 <>
                                     <span className="material-symbols-outlined text-[20px]">
-                                        {exportFormat === 'kml' ? 'map' : exportFormat === 'csv' ? 'table_view' : exportFormat === 'excel' ? 'grid_on' : 'description'}
+                                        {exportFormat === 'kml' ? 'map' : exportFormat === 'excel' ? 'table_view' : 'description'}
                                     </span>
                                     Download {exportFormat.toUpperCase()}
                                 </>
