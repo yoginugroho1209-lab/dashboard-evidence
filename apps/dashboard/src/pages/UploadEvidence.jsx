@@ -283,20 +283,38 @@ const UploadEvidence = () => {
             console.log('🤖 Running pole detection...');
             let detectedObjects = [];
 
-            if (imageRef.current) {
-                // We now call detectPoles regardless of modelStatus 
-                // because it has internal timeout and fallback to heuristic
-                detectedObjects = await detectPoles(imageRef.current);
-                console.log('Detected objects:', detectedObjects);
+            // CRITICAL FIX: Create a fresh Image() from previewUrl to guarantee
+            // the image is fully loaded with correct naturalWidth/naturalHeight.
+            // Using imageRef.current can fail if the <img> element hasn't fully rendered.
+            if (previewUrl) {
+                try {
+                    const freshImg = new Image();
+                    freshImg.crossOrigin = 'anonymous';
+                    freshImg.src = previewUrl;
+                    await new Promise((resolve, reject) => {
+                        if (freshImg.complete && freshImg.naturalWidth > 0) {
+                            resolve();
+                        } else {
+                            freshImg.onload = resolve;
+                            freshImg.onerror = reject;
+                        }
+                    });
+                    console.log(`📐 Fresh image loaded: ${freshImg.naturalWidth}x${freshImg.naturalHeight}`);
 
-                // Draw bounding boxes on canvas
-                if (canvasRef.current && detectedObjects.length > 0) {
-                    const canvas = canvasRef.current;
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = imageRef.current.naturalWidth;
-                    canvas.height = imageRef.current.naturalHeight;
-                    ctx.drawImage(imageRef.current, 0, 0);
-                    drawDetections(canvas, detectedObjects);
+                    detectedObjects = await detectPoles(freshImg);
+                    console.log('Detected objects:', detectedObjects);
+
+                    // Draw bounding boxes on canvas
+                    if (canvasRef.current && detectedObjects.length > 0) {
+                        const canvas = canvasRef.current;
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = freshImg.naturalWidth;
+                        canvas.height = freshImg.naturalHeight;
+                        ctx.drawImage(freshImg, 0, 0);
+                        drawDetections(canvas, detectedObjects);
+                    }
+                } catch (detErr) {
+                    console.error('⚠️ Detection failed, continuing without AI:', detErr);
                 }
             }
 
@@ -777,16 +795,20 @@ const UploadEvidence = () => {
                                         <span className="material-symbols-outlined text-[16px]">smart_toy</span>
                                         Deteksi AI (Tiang)
                                     </span>
-                                    <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">
+                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${analysisResult.objects.length > 0 ? 'bg-green-500/20 text-green-400' : 'bg-slate-500/20 text-slate-400'}`}>
                                         {analysisResult.objects.length} objek
                                     </span>
                                 </div>
                                 {analysisResult.objects.length > 0 ? (
                                     <div className="flex flex-wrap gap-2">
                                         {analysisResult.objects.map((obj, i) => (
-                                            <span key={i} className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">
-                                                {obj.label || obj.class} ({(obj.confidence * 100).toFixed(0)}%)
-                                            </span>
+                                            <div key={i} className={`text-xs px-2 py-1.5 rounded flex items-center gap-1.5 ${obj.source === 'heuristic' ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/20' : 'bg-green-500/20 text-green-300 border border-green-500/20'}`}>
+                                                <span className="font-medium">{obj.label || obj.class}</span>
+                                                <span className="opacity-70">{(obj.confidence * 100).toFixed(0)}%</span>
+                                                <span className={`text-[9px] px-1 rounded ${obj.source === 'heuristic' ? 'bg-yellow-500/30' : 'bg-green-500/30'}`}>
+                                                    {obj.source === 'heuristic' ? 'Heuristic' : 'AI'}
+                                                </span>
+                                            </div>
                                         ))}
                                     </div>
                                 ) : (
@@ -955,16 +977,19 @@ const UploadEvidence = () => {
                                     <div className="flex items-center gap-2 text-purple-400 mb-3">
                                         <span className="material-symbols-outlined text-[18px]">smart_toy</span>
                                         <span className="text-sm font-bold uppercase tracking-wide">Deteksi AI (Tiang)</span>
-                                        <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded">
+                                        <span className={`text-xs px-2 py-0.5 rounded ${analysisResult.objects.length > 0 ? 'bg-green-500/20 text-green-300' : 'bg-slate-500/20 text-slate-400'}`}>
                                             {analysisResult.objects.length} objek
                                         </span>
                                     </div>
                                     {analysisResult.objects.length > 0 ? (
                                         <div className="flex flex-wrap gap-2">
                                             {analysisResult.objects.map((obj, idx) => (
-                                                <div key={idx} className="bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-2 flex items-center gap-2">
-                                                    <span className="text-purple-400 font-medium">{obj.label}</span>
-                                                    <span className="text-xs text-purple-300 bg-purple-500/20 px-1.5 py-0.5 rounded">{(obj.confidence * 100).toFixed(0)}%</span>
+                                                <div key={idx} className={`border rounded-lg px-3 py-2 flex items-center gap-2 ${obj.source === 'heuristic' ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-green-500/10 border-green-500/20'}`}>
+                                                    <span className={`font-medium ${obj.source === 'heuristic' ? 'text-yellow-400' : 'text-green-400'}`}>{obj.label}</span>
+                                                    <span className={`text-xs px-1.5 py-0.5 rounded ${obj.source === 'heuristic' ? 'text-yellow-300 bg-yellow-500/20' : 'text-green-300 bg-green-500/20'}`}>{(obj.confidence * 100).toFixed(0)}%</span>
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${obj.source === 'heuristic' ? 'bg-yellow-500/30 text-yellow-200' : 'bg-green-500/30 text-green-200'}`}>
+                                                        {obj.source === 'heuristic' ? '🔍 Heuristic' : '🤖 AI Model'}
+                                                    </span>
                                                 </div>
                                             ))}
                                         </div>
