@@ -399,6 +399,12 @@ const UploadEvidence = () => {
             return;
         }
 
+        // Validation 3: Check Pole Detection
+        if (!analysisResult.objects || analysisResult.objects.length === 0) {
+            alert("GAGAL: Tidak ada tiang terdeteksi dalam foto. Pastikan foto menampilkan tiang/infrastruktur dengan jelas.");
+            return;
+        }
+
         setUploadStatus('saving');
 
         try {
@@ -789,15 +795,21 @@ const UploadEvidence = () => {
                             </div>
 
                             {/* AI Detection Section */}
-                            <div className="p-4 rounded-lg bg-surface-dark border border-border-dark">
+                            <div className={`p-4 rounded-lg border ${analysisResult.objects.length > 0 ? 'bg-surface-dark border-border-dark' : 'bg-red-500/10 border-red-500/30'}`}>
                                 <div className="flex items-center justify-between mb-2">
                                     <span className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
                                         <span className="material-symbols-outlined text-[16px]">smart_toy</span>
                                         Deteksi AI (Tiang)
                                     </span>
-                                    <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${analysisResult.objects.length > 0 ? 'bg-green-500/20 text-green-400' : 'bg-slate-500/20 text-slate-400'}`}>
-                                        {analysisResult.objects.length} objek
-                                    </span>
+                                    {analysisResult.objects.length > 0 ? (
+                                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+                                            {analysisResult.objects.length} objek
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-400">
+                                            Tidak Ada
+                                        </span>
+                                    )}
                                 </div>
                                 {analysisResult.objects.length > 0 ? (
                                     <div className="flex flex-wrap gap-2">
@@ -812,16 +824,16 @@ const UploadEvidence = () => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p className="text-slate-500 text-sm">Tidak ada tiang terdeteksi</p>
+                                    <p className="text-red-400 text-sm">❌ Tidak ada tiang terdeteksi. Evidence tidak bisa disimpan tanpa deteksi tiang.</p>
                                 )}
                             </div>
 
                             {/* Save Button for Mobile */}
                             <button
                                 onClick={handleSaveToReport}
-                                disabled={saveStatus === 'success' || !analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius}
+                                disabled={saveStatus === 'success' || !analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius || analysisResult.objects.length === 0}
                                 className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
-                                    (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
+                                    (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius || analysisResult.objects.length === 0) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
                                         'bg-primary hover:bg-primary/90 text-white'
                                     }`}
                             >
@@ -831,6 +843,8 @@ const UploadEvidence = () => {
                                     <><span className="material-symbols-outlined text-[18px]">gps_off</span> GPS Required</>
                                 ) : !analysisResult.matchedPoint.withinRadius ? (
                                     <><span className="material-symbols-outlined text-[18px]">wrong_location</span> Diluar Radius ({radiusMeters}m)</>
+                                ) : analysisResult.objects.length === 0 ? (
+                                    <><span className="material-symbols-outlined text-[18px]">search_off</span> Tiang Tidak Terdeteksi</>
                                 ) : (
                                     <><span className="material-symbols-outlined text-[18px]">save</span> Simpan ke Report</>
                                 )}
@@ -973,13 +987,21 @@ const UploadEvidence = () => {
                                 </div>
 
                                 {/* AI Detection */}
-                                <div className="bg-[#1c1e20] border border-border-dark rounded-lg p-4">
-                                    <div className="flex items-center gap-2 text-purple-400 mb-3">
-                                        <span className="material-symbols-outlined text-[18px]">smart_toy</span>
-                                        <span className="text-sm font-bold uppercase tracking-wide">Deteksi AI (Tiang)</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded ${analysisResult.objects.length > 0 ? 'bg-green-500/20 text-green-300' : 'bg-slate-500/20 text-slate-400'}`}>
-                                            {analysisResult.objects.length} objek
+                                <div className={`border rounded-lg p-4 ${analysisResult.objects.length > 0 ? 'bg-[#1c1e20] border-border-dark' : 'bg-red-500/10 border-red-500/20'}`}>
+                                    <div className={`flex items-center gap-2 mb-3 ${analysisResult.objects.length > 0 ? 'text-purple-400' : 'text-red-400'}`}>
+                                        <span className="material-symbols-outlined text-[18px]">
+                                            {analysisResult.objects.length > 0 ? 'smart_toy' : 'error'}
                                         </span>
+                                        <span className="text-sm font-bold uppercase tracking-wide">Deteksi AI (Tiang)</span>
+                                        {analysisResult.objects.length > 0 ? (
+                                            <span className="text-xs px-2 py-0.5 rounded bg-green-500/20 text-green-300">
+                                                {analysisResult.objects.length} objek
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs px-2 py-0.5 rounded bg-red-500/20 text-red-400">
+                                                Tidak Ada
+                                            </span>
+                                        )}
                                     </div>
                                     {analysisResult.objects.length > 0 ? (
                                         <div className="flex flex-wrap gap-2">
@@ -994,7 +1016,7 @@ const UploadEvidence = () => {
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-slate-500 text-sm">Tidak terdeteksi tiang listrik dalam foto.</p>
+                                        <p className="text-red-400 text-sm">❌ Tidak ada tiang terdeteksi. Evidence tidak bisa disimpan tanpa deteksi tiang.</p>
                                     )}
                                 </div>
 
@@ -1005,10 +1027,11 @@ const UploadEvidence = () => {
                                         saveStatus === 'success' ||
                                         uploadStatus === 'saving' ||
                                         !analysisResult.exif.hasGPS ||
-                                        !analysisResult.matchedPoint.withinRadius
+                                        !analysisResult.matchedPoint.withinRadius ||
+                                        analysisResult.objects.length === 0
                                     }
                                     className={`mt-2 w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
-                                        (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
+                                        (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius || analysisResult.objects.length === 0) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
                                             'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
                                         }`}
                                 >
@@ -1026,6 +1049,11 @@ const UploadEvidence = () => {
                                         <>
                                             <span className="material-symbols-outlined text-[18px]">wrong_location</span>
                                             Diluar Radius ({radiusMeters}m)
+                                        </>
+                                    ) : analysisResult.objects.length === 0 ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">search_off</span>
+                                            Tiang Tidak Terdeteksi
                                         </>
                                     ) : (
                                         <>
