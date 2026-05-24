@@ -28,3 +28,9 @@
   background: rgba(26, 28, 30, 0.8);
   backdrop-filter: blur(12px);
 }
+
+/* Prevent browser auto-translation from breaking Material Symbols icons */
+.material-symbols-outlined {
+  font-feature-settings: 'liga';
+  -webkit-font-feature-settings: 'liga';
+}

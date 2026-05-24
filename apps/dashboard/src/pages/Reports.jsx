@@ -5,6 +5,8 @@ import JSZip from 'jszip'
 import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, WidthType, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
 import ExcelJS from 'exceljs'
+import jsPDF from 'jspdf'
+import 'jspdf-autotable'
 
 const Reports = () => {
     const [projects, setProjects] = useState([]);
@@ -756,28 +758,345 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
         URL.revokeObjectURL(url);
     };
 
-    const handleDownloadCSV = () => {
-        let csvContent = "No,Point ID,Name,Latitude,Longitude,Photo URL,Status,Timestamp\n";
-
-        evidenceList.forEach((item, idx) => {
-            const lat = item.latitude || item.exif_latitude || '';
-            const lng = item.longitude || item.exif_longitude || '';
-            const hasEvidence = item.evidence?.length > 0 || item.photo_url;
-            const photoUrl = item.photo_url || item.evidence?.[0]?.photo_url || '';
-            const timestamp = item.created_at ? new Date(item.created_at).toLocaleString() : '';
-
-            csvContent += `${idx + 1},"${item.point_id || ''}","${item.name || ''}",${lat},${lng},"${photoUrl}","${hasEvidence ? 'Evidence' : 'Pending'}","${timestamp}"\n`;
+    // PDF Export with photos
+    const handleDownloadPDF = async () => {
+        const selectedProject = projects.find(p => p.id === selectedProjectId);
+        const projectName = selectedProject?.name || 'Evidence Report';
+        const dateString = new Date().toLocaleDateString('id-ID', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
         });
 
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `evidence_report_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        setIsProcessing(true);
+        setExportProgress('Mempersiapkan dokumen PDF...');
+
+        try {
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 15;
+            const contentWidth = pageWidth - margin * 2;
+
+            // ========== HELPER FUNCTIONS ==========
+            const addPageFooter = (pageNum) => {
+                doc.setFontSize(8);
+                doc.setTextColor(150, 150, 150);
+                doc.text(`Dashboard Evidence - ${projectName}`, margin, pageHeight - 8);
+                doc.text(`Halaman ${pageNum}`, pageWidth - margin, pageHeight - 8, { align: 'right' });
+            };
+
+            let currentPage = 1;
+
+            // ========== PAGE 1: COVER / TITLE ==========
+            // Title bar
+            doc.setFillColor(27, 152, 141); // Primary color
+            doc.rect(0, 0, pageWidth, 45, 'F');
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(22);
+            doc.setTextColor(255, 255, 255);
+            doc.text('LAPORAN EVIDENCE', pageWidth / 2, 20, { align: 'center' });
+
+            doc.setFontSize(14);
+            doc.text(projectName, pageWidth / 2, 32, { align: 'center' });
+
+            // Date info
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(10);
+            doc.setTextColor(80, 80, 80);
+            doc.text(`Tanggal: ${dateString}`, margin, 58);
+
+            // ========== SUMMARY STATS ==========
+            const totalPoints = evidenceList.length;
+            const withEvidence = evidenceList.filter(e => e.photo_url || e.evidence?.length > 0).length;
+            const pending = totalPoints - withEvidence;
+            const completionRate = totalPoints > 0 ? Math.round((withEvidence / totalPoints) * 100) : 0;
+
+            let yPos = 72;
+
+            // Summary title
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(27, 152, 141);
+            doc.text('RINGKASAN', margin, yPos);
+            yPos += 3;
+            doc.setDrawColor(27, 152, 141);
+            doc.setLineWidth(0.5);
+            doc.line(margin, yPos, margin + 35, yPos);
+            yPos += 8;
+
+            // Stats boxes
+            const boxWidth = (contentWidth - 6) / 4;
+            const statsData = [
+                { label: 'Total Titik', value: String(totalPoints), color: [59, 130, 246] },
+                { label: 'Dengan Evidence', value: String(withEvidence), color: [34, 197, 94] },
+                { label: 'Pending', value: String(pending), color: [234, 179, 8] },
+                { label: 'Completion', value: `${completionRate}%`, color: [27, 152, 141] }
+            ];
+
+            statsData.forEach((stat, i) => {
+                const x = margin + i * (boxWidth + 2);
+                // Box background
+                doc.setFillColor(245, 247, 250);
+                doc.roundedRect(x, yPos, boxWidth, 22, 2, 2, 'F');
+                // Top accent line
+                doc.setFillColor(...stat.color);
+                doc.rect(x, yPos, boxWidth, 2, 'F');
+                // Value
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(16);
+                doc.setTextColor(...stat.color);
+                doc.text(stat.value, x + boxWidth / 2, yPos + 12, { align: 'center' });
+                // Label
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(7);
+                doc.setTextColor(100, 100, 100);
+                doc.text(stat.label, x + boxWidth / 2, yPos + 19, { align: 'center' });
+            });
+
+            yPos += 32;
+
+            // ========== DATA TABLE ==========
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(27, 152, 141);
+            doc.text('DATA TITIK', margin, yPos);
+            yPos += 3;
+            doc.setDrawColor(27, 152, 141);
+            doc.setLineWidth(0.5);
+            doc.line(margin, yPos, margin + 30, yPos);
+            yPos += 5;
+
+            // Build table data
+            const tableData = evidenceList.map((item, idx) => {
+                const lat = item.latitude || item.exif_latitude || '';
+                const lng = item.longitude || item.exif_longitude || '';
+                const hasEv = item.evidence?.length > 0 || item.photo_url;
+                const timestamp = item.created_at ? new Date(item.created_at).toLocaleDateString('id-ID') : '-';
+
+                return [
+                    String(idx + 1),
+                    item.point_id || '-',
+                    item.name || '-',
+                    lat ? Number(lat).toFixed(6) : '-',
+                    lng ? Number(lng).toFixed(6) : '-',
+                    hasEv ? '✓ Evidence' : '○ Pending',
+                    timestamp
+                ];
+            });
+
+            doc.autoTable({
+                startY: yPos,
+                head: [['No', 'Point ID', 'Nama Titik', 'Latitude', 'Longitude', 'Status', 'Tanggal']],
+                body: tableData,
+                margin: { left: margin, right: margin },
+                styles: {
+                    fontSize: 8,
+                    cellPadding: 2.5,
+                    lineColor: [220, 220, 220],
+                    lineWidth: 0.1,
+                },
+                headStyles: {
+                    fillColor: [27, 152, 141],
+                    textColor: [255, 255, 255],
+                    fontStyle: 'bold',
+                    fontSize: 8,
+                },
+                alternateRowStyles: {
+                    fillColor: [248, 250, 252],
+                },
+                columnStyles: {
+                    0: { halign: 'center', cellWidth: 10 },
+                    3: { halign: 'right', cellWidth: 22 },
+                    4: { halign: 'right', cellWidth: 22 },
+                    5: { halign: 'center', cellWidth: 22 },
+                    6: { halign: 'center', cellWidth: 22 },
+                },
+                didParseCell: (data) => {
+                    // Color the status cell
+                    if (data.section === 'body' && data.column.index === 5) {
+                        if (data.cell.raw.includes('✓')) {
+                            data.cell.styles.textColor = [22, 163, 74]; // green
+                            data.cell.styles.fontStyle = 'bold';
+                        } else {
+                            data.cell.styles.textColor = [234, 88, 12]; // orange
+                        }
+                    }
+                },
+            });
+
+            addPageFooter(currentPage);
+
+            // ========== EVIDENCE DETAIL PAGES WITH PHOTOS ==========
+            const evidenceWithPhotos = evidenceList.filter(item => {
+                const photoUrl = item.photo_url || item.evidence?.[0]?.photo_url;
+                return !!photoUrl;
+            });
+
+            if (evidenceWithPhotos.length > 0) {
+                doc.addPage();
+                currentPage++;
+                yPos = margin;
+
+                // Section title
+                doc.setFillColor(27, 152, 141);
+                doc.rect(0, 0, pageWidth, 20, 'F');
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(14);
+                doc.setTextColor(255, 255, 255);
+                doc.text('DETAIL EVIDENCE DENGAN FOTO', pageWidth / 2, 13, { align: 'center' });
+                yPos = 30;
+
+                for (let i = 0; i < evidenceWithPhotos.length; i++) {
+                    const item = evidenceWithPhotos[i];
+                    const photoUrl = item.photo_url || item.evidence?.[0]?.photo_url;
+                    const lat = item.latitude || item.exif_latitude || '';
+                    const lng = item.longitude || item.exif_longitude || '';
+                    const evidenceItem = item.evidence?.[0] || item;
+                    const timestamp = evidenceItem.exif_timestamp
+                        ? new Date(evidenceItem.exif_timestamp).toLocaleString('id-ID')
+                        : (item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : '-');
+
+                    setExportProgress(`Memproses foto ${i + 1} dari ${evidenceWithPhotos.length}...`);
+
+                    // Check if we need a new page (need ~110mm for each entry)
+                    if (yPos > pageHeight - 120) {
+                        addPageFooter(currentPage);
+                        doc.addPage();
+                        currentPage++;
+                        yPos = margin;
+                    }
+
+                    // Point header
+                    doc.setFillColor(240, 253, 250);
+                    doc.roundedRect(margin, yPos, contentWidth, 10, 1, 1, 'F');
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(11);
+                    doc.setTextColor(27, 152, 141);
+                    doc.text(`${i + 1}. ${item.name || item.point_id || 'Titik ' + (i + 1)}`, margin + 3, yPos + 7);
+                    yPos += 14;
+
+                    // Details
+                    doc.setFont('helvetica', 'normal');
+                    doc.setFontSize(9);
+                    doc.setTextColor(80, 80, 80);
+
+                    const details = [
+                        ['Point ID', item.point_id || '-'],
+                        ['Koordinat', lat && lng ? `${Number(lat).toFixed(6)}, ${Number(lng).toFixed(6)}` : '-'],
+                        ['Waktu', timestamp],
+                        ['Device', evidenceItem.exif_device || '-'],
+                    ];
+
+                    details.forEach(([label, value]) => {
+                        doc.setFont('helvetica', 'bold');
+                        doc.text(`${label}:`, margin + 2, yPos);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(value, margin + 28, yPos);
+                        yPos += 5;
+                    });
+
+                    yPos += 2;
+
+                    // Try to add photo
+                    if (photoUrl) {
+                        try {
+                            const response = await fetch(photoUrl);
+                            if (response.ok) {
+                                const blob = await response.blob();
+                                const reader = new FileReader();
+
+                                const dataUrl = await new Promise((resolve, reject) => {
+                                    reader.onloadend = () => resolve(reader.result);
+                                    reader.onerror = reject;
+                                    reader.readAsDataURL(blob);
+                                });
+
+                                // Get image dimensions
+                                const img = new Image();
+                                const imgUrl = URL.createObjectURL(blob);
+
+                                const dimensions = await new Promise((resolve) => {
+                                    img.onload = () => {
+                                        URL.revokeObjectURL(imgUrl);
+                                        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+                                    };
+                                    img.onerror = () => {
+                                        URL.revokeObjectURL(imgUrl);
+                                        resolve({ width: 400, height: 300 });
+                                    };
+                                    img.src = imgUrl;
+                                });
+
+                                // Scale image to fit
+                                const maxImgWidth = contentWidth - 10;
+                                const maxImgHeight = 70;
+                                let imgW = dimensions.width;
+                                let imgH = dimensions.height;
+                                const aspectRatio = imgW / imgH;
+
+                                if (imgW > maxImgWidth) {
+                                    imgW = maxImgWidth;
+                                    imgH = imgW / aspectRatio;
+                                }
+                                if (imgH > maxImgHeight) {
+                                    imgH = maxImgHeight;
+                                    imgW = imgH * aspectRatio;
+                                }
+
+                                // Check if we need new page for image
+                                if (yPos + imgH + 15 > pageHeight - 15) {
+                                    addPageFooter(currentPage);
+                                    doc.addPage();
+                                    currentPage++;
+                                    yPos = margin;
+                                }
+
+                                // Draw image border
+                                doc.setDrawColor(220, 220, 220);
+                                doc.setLineWidth(0.3);
+                                doc.roundedRect(margin + 3, yPos - 1, imgW + 4, imgH + 4, 1, 1, 'S');
+
+                                // Add image
+                                const imgFormat = photoUrl.toLowerCase().includes('.png') ? 'PNG' : 'JPEG';
+                                doc.addImage(dataUrl, imgFormat, margin + 5, yPos + 1, imgW, imgH);
+
+                                yPos += imgH + 10;
+                            }
+                        } catch (imgError) {
+                            console.error('Error adding image to PDF:', imgError);
+                            doc.setFont('helvetica', 'italic');
+                            doc.setFontSize(8);
+                            doc.setTextColor(180, 180, 180);
+                            doc.text('[Foto tidak dapat dimuat]', margin + 5, yPos);
+                            yPos += 8;
+                        }
+                    }
+
+                    // Separator line
+                    doc.setDrawColor(230, 230, 230);
+                    doc.setLineWidth(0.2);
+                    doc.line(margin + 10, yPos, pageWidth - margin - 10, yPos);
+                    yPos += 8;
+                }
+            }
+
+            addPageFooter(currentPage);
+
+            setExportProgress('Mengunduh file PDF...');
+
+            // Save the PDF
+            doc.save(`${projectName}_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Gagal membuat file PDF. Silakan coba lagi.');
+        } finally {
+            setIsProcessing(false);
+            setExportProgress(null);
+        }
     };
 
     // Word/DOCX Export with Photos
@@ -1323,8 +1642,8 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
             case 'kml':
                 handleDownloadKML();
                 break;
-            case 'csv':
-                handleDownloadCSV();
+            case 'pdf':
+                handleDownloadPDF();
                 break;
             case 'word':
                 handleDownloadWord();
@@ -1434,16 +1753,16 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                     </label>
                                     <label className="cursor-pointer">
                                         <input
-                                            checked={exportFormat === 'csv'}
-                                            onChange={() => setExportFormat('csv')}
+                                            checked={exportFormat === 'pdf'}
+                                            onChange={() => setExportFormat('pdf')}
                                             className="peer sr-only"
                                             name="format"
                                             type="radio"
-                                            value="csv"
+                                            value="pdf"
                                         />
                                         <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[20px]">table_view</span>
-                                            <span className="text-[10px] font-medium">CSV</span>
+                                            <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
+                                            <span className="text-[10px] font-medium">PDF</span>
                                         </div>
                                     </label>
                                     <label className="cursor-pointer">
@@ -1679,7 +1998,7 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             ) : (
                                 <>
                                     <span className="material-symbols-outlined text-[20px]">
-                                        {exportFormat === 'kml' ? 'map' : exportFormat === 'csv' ? 'table_view' : exportFormat === 'excel' ? 'grid_on' : 'description'}
+                                        {exportFormat === 'kml' ? 'map' : exportFormat === 'pdf' ? 'picture_as_pdf' : exportFormat === 'excel' ? 'grid_on' : 'description'}
                                     </span>
                                     Download {exportFormat.toUpperCase()}
                                 </>
