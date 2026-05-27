@@ -5,8 +5,6 @@ import JSZip from 'jszip'
 import { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, WidthType, ImageRun } from 'docx'
 import { saveAs } from 'file-saver'
 import ExcelJS from 'exceljs'
-import jsPDF from 'jspdf'
-import 'jspdf-autotable'
 
 const Reports = () => {
     const [projects, setProjects] = useState([]);
@@ -1642,9 +1640,6 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
             case 'kml':
                 handleDownloadKML();
                 break;
-            case 'pdf':
-                handleDownloadPDF();
-                break;
             case 'word':
                 handleDownloadWord();
                 break;
@@ -1749,20 +1744,6 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                                         <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
                                             <span className="material-symbols-outlined text-[20px]">map</span>
                                             <span className="text-[10px] font-medium">KML</span>
-                                        </div>
-                                    </label>
-                                    <label className="cursor-pointer">
-                                        <input
-                                            checked={exportFormat === 'pdf'}
-                                            onChange={() => setExportFormat('pdf')}
-                                            className="peer sr-only"
-                                            name="format"
-                                            type="radio"
-                                            value="pdf"
-                                        />
-                                        <div className="flex flex-col items-center justify-center gap-1 p-2 rounded border border-border-dark bg-input-bg peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary transition-all hover:bg-white/5">
-                                            <span className="material-symbols-outlined text-[20px]">picture_as_pdf</span>
-                                            <span className="text-[10px] font-medium">PDF</span>
                                         </div>
                                     </label>
                                     <label className="cursor-pointer">
@@ -1998,7 +1979,7 @@ ${evidence.infraType ? `<b>Jenis:</b> ${evidence.infraType}<br/>` : ''}
                             ) : (
                                 <>
                                     <span className="material-symbols-outlined text-[20px]">
-                                        {exportFormat === 'kml' ? 'map' : exportFormat === 'pdf' ? 'picture_as_pdf' : exportFormat === 'excel' ? 'grid_on' : 'description'}
+                                        {exportFormat === 'kml' ? 'map' : exportFormat === 'excel' ? 'grid_on' : 'description'}
                                     </span>
                                     Download {exportFormat.toUpperCase()}
                                 </>
