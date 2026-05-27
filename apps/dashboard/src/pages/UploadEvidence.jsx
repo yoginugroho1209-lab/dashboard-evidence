@@ -405,13 +405,6 @@ const UploadEvidence = () => {
             return;
         }
 
-        // Validation 4: Check Infrastructure Type must be 'Tiang'
-        const matchedInfraType = analysisResult.matchedPoint.point?.infrastructureType;
-        if (matchedInfraType !== 'Tiang') {
-            alert(`GAGAL: Titik terdekat bertipe "${matchedInfraType || 'Unknown'}". Saat ini hanya titik bertipe "Tiang" yang bisa menerima evidence.`);
-            return;
-        }
-
         setUploadStatus('saving');
 
         try {
@@ -468,7 +461,7 @@ const UploadEvidence = () => {
                         project_id: analysisResult.matchedPoint.point?.projectId || null,
                         uploaded_by: user?.id || null,
                         category: analysisResult.matchedPoint.point?.category || 'Existing',
-                        infrastructure_type: analysisResult.matchedPoint.point?.infrastructureType || 'ODC',
+                        infrastructure_type: 'Tiang',
                     }
                 ])
                 .select();
@@ -836,34 +829,26 @@ const UploadEvidence = () => {
                             </div>
 
                             {/* Save Button for Mobile */}
-                            {(() => {
-                                const isTiang = analysisResult.matchedPoint.point?.infrastructureType === 'Tiang';
-                                const isDisabled = saveStatus === 'success' || !analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius || analysisResult.objects.length === 0 || !isTiang;
-                                return (
-                                    <button
-                                        onClick={handleSaveToReport}
-                                        disabled={isDisabled}
-                                        className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
-                                            isDisabled ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
-                                                'bg-primary hover:bg-primary/90 text-white'
-                                            }`}
-                                    >
-                                        {saveStatus === 'success' ? (
-                                            <><span className="material-symbols-outlined text-[18px]">check</span> Tersimpan</>
-                                        ) : !analysisResult.exif.hasGPS ? (
-                                            <><span className="material-symbols-outlined text-[18px]">gps_off</span> GPS Required</>
-                                        ) : !analysisResult.matchedPoint.withinRadius ? (
-                                            <><span className="material-symbols-outlined text-[18px]">wrong_location</span> Diluar Radius ({radiusMeters}m)</>
-                                        ) : analysisResult.objects.length === 0 ? (
-                                            <><span className="material-symbols-outlined text-[18px]">search_off</span> Tiang Tidak Terdeteksi</>
-                                        ) : !isTiang ? (
-                                            <><span className="material-symbols-outlined text-[18px]">block</span> Bukan Titik Tiang</>
-                                        ) : (
-                                            <><span className="material-symbols-outlined text-[18px]">save</span> Simpan ke Report</>
-                                        )}
-                                    </button>
-                                );
-                            })()}
+                            <button
+                                onClick={handleSaveToReport}
+                                disabled={saveStatus === 'success' || !analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius || analysisResult.objects.length === 0}
+                                className={`w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
+                                    (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius || analysisResult.objects.length === 0) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
+                                        'bg-primary hover:bg-primary/90 text-white'
+                                    }`}
+                            >
+                                {saveStatus === 'success' ? (
+                                    <><span className="material-symbols-outlined text-[18px]">check</span> Tersimpan</>
+                                ) : !analysisResult.exif.hasGPS ? (
+                                    <><span className="material-symbols-outlined text-[18px]">gps_off</span> GPS Required</>
+                                ) : !analysisResult.matchedPoint.withinRadius ? (
+                                    <><span className="material-symbols-outlined text-[18px]">wrong_location</span> Diluar Radius ({radiusMeters}m)</>
+                                ) : analysisResult.objects.length === 0 ? (
+                                    <><span className="material-symbols-outlined text-[18px]">search_off</span> Tiang Tidak Terdeteksi</>
+                                ) : (
+                                    <><span className="material-symbols-outlined text-[18px]">save</span> Simpan ke Report</>
+                                )}
+                            </button>
                         </div>
                     )}
                 </div>
@@ -1036,52 +1021,47 @@ const UploadEvidence = () => {
                                 </div>
 
                                 {/* Save to Report Button */}
-                                {(() => {
-                                    const isTiang = analysisResult.matchedPoint.point?.infrastructureType === 'Tiang';
-                                    const isDisabled = saveStatus === 'success' || uploadStatus === 'saving' || !analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius || analysisResult.objects.length === 0 || !isTiang;
-                                    return (
-                                        <button
-                                            onClick={handleSaveToReport}
-                                            disabled={isDisabled}
-                                            className={`mt-2 w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
-                                                isDisabled ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
-                                                    'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
-                                                }`}
-                                        >
-                                            {saveStatus === 'success' ? (
-                                                <>
-                                                    <span className="material-symbols-outlined text-[18px]">check</span>
-                                                    Tersimpan
-                                                </>
-                                            ) : !analysisResult.exif.hasGPS ? (
-                                                <>
-                                                    <span className="material-symbols-outlined text-[18px]">gps_off</span>
-                                                    GPS Required
-                                                </>
-                                            ) : !analysisResult.matchedPoint.withinRadius ? (
-                                                <>
-                                                    <span className="material-symbols-outlined text-[18px]">wrong_location</span>
-                                                    Diluar Radius ({radiusMeters}m)
-                                                </>
-                                            ) : analysisResult.objects.length === 0 ? (
-                                                <>
-                                                    <span className="material-symbols-outlined text-[18px]">search_off</span>
-                                                    Tiang Tidak Terdeteksi
-                                                </>
-                                            ) : !isTiang ? (
-                                                <>
-                                                    <span className="material-symbols-outlined text-[18px]">block</span>
-                                                    Bukan Titik Tiang
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <span className="material-symbols-outlined text-[18px]">save</span>
-                                                    Simpan ke Report
-                                                </>
-                                            )}
-                                        </button>
-                                    );
-                                })()}
+                                <button
+                                    onClick={handleSaveToReport}
+                                    disabled={
+                                        saveStatus === 'success' ||
+                                        uploadStatus === 'saving' ||
+                                        !analysisResult.exif.hasGPS ||
+                                        !analysisResult.matchedPoint.withinRadius ||
+                                        analysisResult.objects.length === 0
+                                    }
+                                    className={`mt-2 w-full py-3 rounded-lg font-medium transition-all flex items-center justify-center gap-2 shadow-lg ${saveStatus === 'success' ? 'bg-green-600 text-white cursor-not-allowed' :
+                                        (!analysisResult.exif.hasGPS || !analysisResult.matchedPoint.withinRadius || analysisResult.objects.length === 0) ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
+                                            'bg-primary hover:bg-primary/90 text-white shadow-primary/20'
+                                        }`}
+                                >
+                                    {saveStatus === 'success' ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">check</span>
+                                            Tersimpan
+                                        </>
+                                    ) : !analysisResult.exif.hasGPS ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">gps_off</span>
+                                            GPS Required
+                                        </>
+                                    ) : !analysisResult.matchedPoint.withinRadius ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">wrong_location</span>
+                                            Diluar Radius ({radiusMeters}m)
+                                        </>
+                                    ) : analysisResult.objects.length === 0 ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">search_off</span>
+                                            Tiang Tidak Terdeteksi
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span className="material-symbols-outlined text-[18px]">save</span>
+                                            Simpan ke Report
+                                        </>
+                                    )}
+                                </button>
                             </div>
                         )}
                     </div>
